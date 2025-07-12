@@ -1,0 +1,203 @@
+// This is your Prisma schema file for Bona - Collaborative Media Asset Management Platform
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Extended from Clerk authentication
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique // Clerk user ID
+  email       String   @unique
+  username    String?  @unique // User-chosen username
+  firstName   String?
+  lastName    String?
+  displayName String?  // Display name for UI
+  bio         String?  // User biography
+  avatar      String?  // Profile picture URL
+  
+  // User preferences and settings
+  settings    Json?    // JSON object for user preferences
+  isOnboarded Boolean  @default(false) // Has completed onboarding
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  ownedProjects    Project[]       @relation("ProjectOwner")
+  projectMembers   ProjectMember[]
+  uploadedFiles    File[]
+  messages         Message[]
+  
+  @@map("users")
+}
+
+// Project model - Core collaborative workspace
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Privacy and access control
+  isPrivate   Boolean  @default(true) // All projects are private by default
+  
+  // Project settings and metadata
+  settings    Json?    // JSON object for project-specific settings
+  
+  // Owner information
+  ownerId     String
+  owner       User     @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  members     ProjectMember[]
+  files       File[]
+  messages    Message[]
+  
+  @@map("projects")
+}
+
+// ProjectMember model - Many-to-many relationship with roles
+model ProjectMember {
+  id        String      @id @default(cuid())
+  
+  // References
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Role-based access control
+  role      ProjectRole @default(MEMBER)
+  
+  // Timestamps
+  joinedAt  DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  // Ensure unique user per project
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// File model - Media asset storage metadata
+model File {
+  id           String   @id @default(cuid())
+  
+  // File information
+  filename     String
+  originalName String
+  fileSize     Int      // File size in bytes
+  mimeType     String
+  
+  // S3 storage information
+  s3Key        String   // S3 object key
+  s3Bucket     String   // S3 bucket name
+  s3Url        String?  // Direct S3 URL (if public)
+  
+  // File metadata (dimensions, duration, etc.)
+  metadata     Json?    // JSON object for file-specific metadata
+  
+  // Access control
+  isPublic     Boolean  @default(false)
+  
+  // References
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  messageAttachments MessageAttachment[]
+  
+  @@map("files")
+}
+
+// Message model - Team communication
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  
+  // References
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Message threading
+  replyToId String?
+  replyTo   Message? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("MessageReplies")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  attachments MessageAttachment[]
+  
+  @@map("messages")
+}
+
+// MessageAttachment model - File attachments to messages
+model MessageAttachment {
+  id        String  @id @default(cuid())
+  
+  // References
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  @@unique([messageId, fileId])
+  @@map("message_attachments")
+}
+
+// Invitation model - Project invitations
+model Invitation {
+  id        String           @id @default(cuid())
+  email     String
+  projectId String
+  inviterId String
+  role      ProjectRole      @default(MEMBER)
+  status    InvitationStatus @default(PENDING)
+  token     String           @unique // Secure invitation token
+  expiresAt DateTime
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("invitations")
+}
+
+// Enums for role-based access control
+enum ProjectRole {
+  OWNER   // Full access, can delete project
+  ADMIN   // Can invite/remove members, manage settings
+  MEMBER  // Can upload files, send messages
+  VIEWER  // Read-only access
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
