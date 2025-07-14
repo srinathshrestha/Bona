@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { UserService } from "@/lib/database";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 // Validation schema for profile updates
 const profileUpdateSchema = z.object({
@@ -14,7 +15,7 @@ const profileUpdateSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
   bio: z.string().max(160).optional(),
   isOnboarded: z.boolean().optional(),
-  settings: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 });
 
 // PUT /api/users/profile - Update user profile
@@ -45,10 +46,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update user profile
-    const updatedUser = await UserService.updateUserProfile(
-      userId,
-      validatedData
-    );
+    const updatedUser = await UserService.updateUserProfile(userId, {
+      ...validatedData,
+      settings: validatedData.settings as Prisma.InputJsonValue, // Cast to match Prisma InputJsonValue
+    });
 
     return NextResponse.json({
       success: true,
@@ -57,8 +58,6 @@ export async function PUT(request: NextRequest) {
         clerkId: updatedUser.clerkId,
         email: updatedUser.email,
         username: updatedUser.username,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
         displayName: updatedUser.displayName,
         bio: updatedUser.bio,
         avatar: updatedUser.avatar,
@@ -104,8 +103,6 @@ export async function GET() {
         clerkId: user.clerkId,
         email: user.email,
         username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
         displayName: user.displayName,
         bio: user.bio,
         avatar: user.avatar,

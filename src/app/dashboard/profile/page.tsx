@@ -6,8 +6,20 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, User, Save } from "lucide-react";
 import Link from "next/link";
 
+// User interface for profile data
+interface UserProfile {
+  id: string;
+  email: string;
+  username?: string;
+  displayName?: string;
+  bio?: string;
+  avatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function ProfilePage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -130,12 +142,14 @@ export default function ProfilePage() {
                 )}
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    {user?.firstName} {user?.lastName}
+                    {user?.displayName || user?.username || "User"}
                   </h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                   <p className="text-xs text-muted-foreground">
                     Member since{" "}
-                    {new Date(user?.createdAt).toLocaleDateString()}
+                    {user?.createdAt
+                      ? new Date(user.createdAt).toLocaleDateString()
+                      : "Unknown"}
                   </p>
                 </div>
               </div>
@@ -241,13 +255,17 @@ export default function ProfilePage() {
                 <div>
                   <p className="font-medium text-foreground">Created</p>
                   <p className="text-muted-foreground">
-                    {new Date(user?.createdAt).toLocaleDateString()}
+                    {user?.createdAt
+                      ? new Date(user.createdAt).toLocaleDateString()
+                      : "Unknown"}
                   </p>
                 </div>
                 <div>
                   <p className="font-medium text-foreground">Last Updated</p>
                   <p className="text-muted-foreground">
-                    {new Date(user?.updatedAt).toLocaleDateString()}
+                    {user?.updatedAt
+                      ? new Date(user.updatedAt).toLocaleDateString()
+                      : "Unknown"}
                   </p>
                 </div>
               </div>

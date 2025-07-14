@@ -4,16 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
-interface OnboardingActionsProps {
-  userId: string;
-}
 
-export default function OnboardingActions({ userId }: OnboardingActionsProps) {
+export default function OnboardingActions() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // userId available for future use (e.g., analytics, tracking)
-
+  // Complete onboarding process
+  // This marks the user as onboarded and redirects to dashboard
   const completeOnboarding = async () => {
     setLoading(true);
     try {

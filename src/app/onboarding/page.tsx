@@ -58,8 +58,7 @@ export default async function OnboardingPage() {
               <CheckCircle className="w-8 h-8 text-primary" />
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              Welcome to Bona,{" "}
-              {user.displayName || user.firstName || user.username || "there"}!
+              Welcome to Bona, {user.displayName || user.username || "there"}!
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Let&apos;s get you set up with everything you need to start

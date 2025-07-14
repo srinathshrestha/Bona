@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Users, FolderOpen, Upload, Settings, User } from "lucide-react";
-import { UserService } from "@/lib/database";
+import { UserService, ProjectService } from "@/lib/database";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -36,20 +37,21 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b border-border bg-card">
+      <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-primary">Bona</h1>
-              <span className="text-muted-foreground">Dashboard</span>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <h1 className="text-xl sm:text-2xl font-bold text-primary">
+                Bona
+              </h1>
+              <span className="hidden sm:inline text-muted-foreground">
+                Dashboard
+              </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="hidden md:block text-right">
                 <p className="text-sm font-medium text-foreground">
-                  {user.displayName ||
-                    user.firstName ||
-                    user.username ||
-                    "User"}
+                  {user.displayName || user.username || "User"}
                 </p>
                 {user.username && (
                   <p className="text-xs text-muted-foreground">
@@ -61,12 +63,18 @@ export default async function DashboardPage() {
                 <img
                   src={user.avatar}
                   alt="Profile"
-                  className="w-8 h-8 rounded-full"
+                  className="w-8 h-8 rounded-full ring-2 ring-border"
                 />
               )}
+              <ThemeToggle />
               <Link href="/dashboard/profile">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:inline-flex"
+                >
                   <Settings className="w-4 h-4" />
+                  <span className="hidden sm:ml-2 sm:inline">Settings</span>
                 </Button>
               </Link>
             </div>
@@ -80,8 +88,7 @@ export default async function DashboardPage() {
           {/* Welcome Section */}
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              Welcome back,{" "}
-              {user.displayName || user.firstName || user.username}!
+              Welcome back, {user.displayName || user.username}!
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               {user.bio ||
@@ -90,7 +97,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <CreateProjectCard />
             <JoinProjectCard />
             <UploadFilesCard />
@@ -100,30 +107,14 @@ export default async function DashboardPage() {
           {/* Projects Overview */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Projects */}
-            <RecentProjectsCard />
+            <RecentProjectsCard userId={userId} />
 
             {/* Activity Feed */}
             <ActivityFeedCard />
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatsCard
-              title="Projects Created"
-              value={0}
-              icon={<FolderOpen className="w-5 h-5" />}
-            />
-            <StatsCard
-              title="Projects Joined"
-              value={0}
-              icon={<Users className="w-5 h-5" />}
-            />
-            <StatsCard
-              title="Total Projects"
-              value={0}
-              icon={<Plus className="w-5 h-5" />}
-            />
-          </div>
+          <StatsCardsSection userId={userId} />
         </div>
       </div>
     </div>
@@ -219,32 +210,111 @@ function ManageProfileCard() {
 }
 
 // Component: Recent Projects Card
-async function RecentProjectsCard() {
-  // For now, show empty state. We'll implement project fetching later
+async function RecentProjectsCard({ userId }: { userId: string }) {
+  // Get user's projects
+  const user = await UserService.getUserByClerkId(userId);
+  const userProjects = user
+    ? await ProjectService.getUserProjects(user.id)
+    : null;
+
+  // Get recent projects (both owned and member)
+  const recentProjects = [];
+  if (userProjects) {
+    // Add owned projects
+    recentProjects.push(
+      ...userProjects.ownedProjects.map((project) => ({
+        ...project,
+        role: "OWNER" as const,
+        owner: user,
+      }))
+    );
+
+    // Add member projects
+    recentProjects.push(
+      ...userProjects.projectMembers.map((membership) => ({
+        ...membership.project,
+        role: membership.role,
+        owner: membership.project.owner,
+      }))
+    );
+  }
+
+  // Sort by most recent activity
+  recentProjects.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center">
-          <FolderOpen className="w-5 h-5 mr-2" />
-          Recent Projects
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center">
+            <FolderOpen className="w-5 h-5 mr-2" />
+            Recent Projects
+          </div>
+          <div className="flex space-x-2">
+            <Link href="/dashboard/projects">
+              <Button variant="ghost" size="sm">
+                View All
+              </Button>
+            </Link>
+            <Link href="/dashboard/projects/new">
+              <Button variant="outline" size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            </Link>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-center py-8">
-          <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            No Projects Yet
-          </h3>
-          <p className="text-muted-foreground mb-4">
-            Create your first project to start collaborating
-          </p>
-          <Link href="/dashboard/projects/new">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Project
-            </Button>
-          </Link>
-        </div>
+        {recentProjects.length > 0 ? (
+          <div className="space-y-3">
+            {recentProjects.slice(0, 5).map((project) => (
+              <Link key={project.id} href={`/dashboard/projects/${project.id}`}>
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors cursor-pointer">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <FolderOpen className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {project.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {project.description || "No description"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                      {project.role}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(project.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <FolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              No Projects Yet
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Create your first project to start collaborating
+            </p>
+            <Link href="/dashboard/projects/new">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Project
+              </Button>
+            </Link>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -271,6 +341,39 @@ function ActivityFeedCard() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Component: Stats Cards Section
+async function StatsCardsSection({ userId }: { userId: string }) {
+  // Get user's projects to calculate stats
+  const user = await UserService.getUserByClerkId(userId);
+  const userProjects = user
+    ? await ProjectService.getUserProjects(user.id)
+    : null;
+
+  const ownedCount = userProjects?.ownedProjects.length || 0;
+  const memberCount = userProjects?.projectMembers.length || 0;
+  const totalCount = ownedCount + memberCount;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <StatsCard
+        title="Projects Created"
+        value={ownedCount}
+        icon={<FolderOpen className="w-5 h-5" />}
+      />
+      <StatsCard
+        title="Projects Joined"
+        value={memberCount}
+        icon={<Users className="w-5 h-5" />}
+      />
+      <StatsCard
+        title="Total Projects"
+        value={totalCount}
+        icon={<Plus className="w-5 h-5" />}
+      />
+    </div>
   );
 }
 

@@ -16,8 +16,6 @@ model User {
   clerkId     String   @unique // Clerk user ID
   email       String   @unique
   username    String?  @unique // User-chosen username
-  firstName   String?
-  lastName    String?
   displayName String?  // Display name for UI
   bio         String?  // User biography
   avatar      String?  // Profile picture URL
@@ -35,6 +33,13 @@ model User {
   projectMembers   ProjectMember[]
   uploadedFiles    File[]
   messages         Message[]
+  
+  // New relations for enhanced permission system
+  createdInviteLinks ProjectInviteLink[] @relation("InviteLinkCreator")
+  joinLogs          MemberJoinLog[]
+  fileAccesses      FileAccess[]
+  roleChangesGiven  RoleChangeLog[]     @relation("RoleChanger")
+  roleChangesReceived RoleChangeLog[]   @relation("RoleChangeTarget")
   
   @@map("users")
 }
@@ -63,6 +68,11 @@ model Project {
   members     ProjectMember[]
   files       File[]
   messages    Message[]
+  
+  // New relations for enhanced permission system
+  inviteLinks ProjectInviteLink[]
+  joinLogs    MemberJoinLog[]
+  roleChanges RoleChangeLog[]
   
   @@map("projects")
 }
@@ -123,6 +133,9 @@ model File {
   // Relations
   messageAttachments MessageAttachment[]
   
+  // New relations for enhanced permission system
+  fileAccesses FileAccess[]
+  
   @@map("files")
 }
 
@@ -169,7 +182,7 @@ model MessageAttachment {
   @@map("message_attachments")
 }
 
-// Invitation model - Project invitations
+// Invitation model - Project invitations (Legacy email-based system)
 model Invitation {
   id        String           @id @default(cuid())
   email     String
@@ -187,6 +200,112 @@ model Invitation {
   @@map("invitations")
 }
 
+// === NEW MODELS FOR ENHANCED INVITATION & PERMISSION SYSTEM ===
+
+// ProjectInviteLink model - Secret link mechanism for project invitations
+model ProjectInviteLink {
+  id          String   @id @default(cuid())
+  
+  // References
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("InviteLinkCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  // Secret link configuration
+  secretToken String   @unique // Cryptographically secure token
+  isActive    Boolean  @default(true) // Can be deactivated by owner
+  
+  // Usage tracking
+  maxUses     Int?     // Optional usage limit (null = unlimited)
+  currentUses Int      @default(0) // Track how many times used
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime? // Optional expiration (null = never expires)
+  
+  // Relations
+  joinLogs    MemberJoinLog[]
+  
+  // Ensure only one active link per project
+  @@unique([projectId, isActive])
+  @@map("project_invite_links")
+}
+
+// MemberJoinLog model - Audit trail for member joins
+model MemberJoinLog {
+  id          String   @id @default(cuid())
+  
+  // References
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Join method tracking
+  joinMethod  JoinMethod
+  inviteToken String?  // Reference to invitation token used
+  inviteLink  ProjectInviteLink? @relation(fields: [inviteToken], references: [secretToken])
+  
+  // Request information for security
+  ipAddress   String?
+  userAgent   String?
+  
+  // Timestamps
+  joinedAt    DateTime @default(now())
+  
+  @@map("member_join_logs")
+}
+
+// FileAccess model - File access logging for security and analytics
+model FileAccess {
+  id          String     @id @default(cuid())
+  
+  // References
+  fileId      String
+  file        File       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Access information
+  accessType  FileAccessType
+  
+  // Request information
+  ipAddress   String?
+  userAgent   String?
+  
+  // Timestamps
+  accessedAt  DateTime   @default(now())
+  
+  @@map("file_accesses")
+}
+
+// RoleChangeLog model - Role change tracking for audit trails
+model RoleChangeLog {
+  id          String      @id @default(cuid())
+  
+  // References
+  userId      String      // User whose role was changed
+  user        User        @relation("RoleChangeTarget", fields: [userId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changedById String      // User who made the change
+  changedBy   User        @relation("RoleChanger", fields: [changedById], references: [id], onDelete: Cascade)
+  
+  // Role change information
+  oldRole     ProjectRole
+  newRole     ProjectRole
+  reason      String?     // Optional reason for the change
+  
+  // Timestamps
+  changedAt   DateTime    @default(now())
+  
+  @@map("role_change_logs")
+}
+
+// === ENUMS ===
+
 // Enums for role-based access control
 enum ProjectRole {
   OWNER   // Full access, can delete project
@@ -200,4 +319,18 @@ enum InvitationStatus {
   ACCEPTED
   REJECTED
   EXPIRED
+}
+
+// New enums for enhanced permission system
+enum JoinMethod {
+  INVITE_LINK    // Joined via secret link
+  DIRECT_INVITE  // Joined via direct invitation (legacy)
+  ADMIN_ADDED    // Added directly by admin
+}
+
+enum FileAccessType {
+  VIEW      // File was viewed/previewed
+  DOWNLOAD  // File was downloaded
+  UPLOAD    // File was uploaded
+  DELETE    // File was deleted
 }
