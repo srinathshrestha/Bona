@@ -90,8 +90,11 @@ export function MemberManagement({
   initialPermissions,
 }: MemberManagementProps) {
   const [members, setMembers] = useState<Member[]>(initialMembers);
-  const [permissions, setPermissions] = useState<Permissions>(initialPermissions);
-  const [admissionStatus, setAdmissionStatus] = useState<AdmissionStatus | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [permissions, setPermissions] =
+    useState<Permissions>(initialPermissions);
+  const [admissionStatus, setAdmissionStatus] =
+    useState<AdmissionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
@@ -108,7 +111,9 @@ export function MemberManagement({
 
   const loadAdmissionStatus = async () => {
     try {
-      const response = await fetch(`/api/projects/${projectId}/admission-control`);
+      const response = await fetch(
+        `/api/projects/${projectId}/admission-control`
+      );
       if (response.ok) {
         const status = await response.json();
         setAdmissionStatus(status);
@@ -151,7 +156,9 @@ export function MemberManagement({
   const canManageRole = (targetRole: ProjectRole) => {
     if (permissions.role === ProjectRole.OWNER) return true;
     if (permissions.role === ProjectRole.ADMIN) {
-      return targetRole === ProjectRole.MEMBER || targetRole === ProjectRole.VIEWER;
+      return (
+        targetRole === ProjectRole.MEMBER || targetRole === ProjectRole.VIEWER
+      );
     }
     return false;
   };
@@ -172,23 +179,23 @@ export function MemberManagement({
       });
 
       if (response.ok) {
-        const result = await response.json();
-        
         // Update local state
-        setMembers(prev => prev.map(member => 
-          member.user.id === selectedMember.user.id 
-            ? { ...member, role: newRole }
-            : member
-        ));
+        setMembers((prev) =>
+          prev.map((member) =>
+            member.user.id === selectedMember.user.id
+              ? { ...member, role: newRole }
+              : member
+          )
+        );
 
         toast.success(`Role updated to ${newRole}`);
         setShowRoleDialog(false);
         setReason("");
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to update role");
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to update role");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred while updating the role");
     } finally {
       setIsLoading(false);
@@ -211,16 +218,18 @@ export function MemberManagement({
 
       if (response.ok) {
         // Remove from local state
-        setMembers(prev => prev.filter(member => member.user.id !== selectedMember.user.id));
-        
+        setMembers((prev) =>
+          prev.filter((member) => member.user.id !== selectedMember.user.id)
+        );
+
         toast.success("Member removed successfully");
         setShowRemoveDialog(false);
         setReason("");
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to remove member");
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to remove member");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred while removing the member");
     } finally {
       setIsLoading(false);
@@ -233,19 +242,24 @@ export function MemberManagement({
     setIsLoading(true);
     try {
       const method = admissionStatus.isOpen ? "DELETE" : "POST";
-      const response = await fetch(`/api/projects/${projectId}/admission-control`, {
-        method,
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        `/api/projects/${projectId}/admission-control`,
+        {
+          method,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       if (response.ok) {
         await loadAdmissionStatus();
-        toast.success(admissionStatus.isOpen ? "Admissions closed" : "Admissions opened");
+        toast.success(
+          admissionStatus.isOpen ? "Admissions closed" : "Admissions opened"
+        );
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to toggle admissions");
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to toggle admissions");
       }
-    } catch (error) {
+    } catch {
       toast.error("An error occurred while toggling admissions");
     } finally {
       setIsLoading(false);
@@ -270,7 +284,7 @@ export function MemberManagement({
                 <Settings className="w-5 h-5 mr-2" />
                 Admission Control
               </div>
-              <Badge 
+              <Badge
                 variant={admissionStatus.isOpen ? "default" : "secondary"}
                 className="flex items-center"
               >
@@ -292,13 +306,14 @@ export function MemberManagement({
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">
-                  {admissionStatus.isOpen ? "Admissions are open" : "Admissions are closed"}
+                  {admissionStatus.isOpen
+                    ? "Admissions are open"
+                    : "Admissions are closed"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {admissionStatus.isOpen 
+                  {admissionStatus.isOpen
                     ? "People can join your project using the invitation link"
-                    : "No one can join your project right now"
-                  }
+                    : "No one can join your project right now"}
                 </p>
               </div>
               <Button
@@ -306,7 +321,9 @@ export function MemberManagement({
                 disabled={isLoading}
                 variant={admissionStatus.isOpen ? "destructive" : "default"}
               >
-                {admissionStatus.isOpen ? "Close Admissions" : "Open Admissions"}
+                {admissionStatus.isOpen
+                  ? "Close Admissions"
+                  : "Open Admissions"}
               </Button>
             </div>
 
@@ -326,7 +343,12 @@ export function MemberManagement({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(admissionStatus.activeInviteLink?.url, "_blank")}
+                      onClick={() =>
+                        window.open(
+                          admissionStatus.activeInviteLink?.url,
+                          "_blank"
+                        )
+                      }
                     >
                       <ExternalLink className="w-4 h-4 mr-1" />
                       Open
@@ -339,7 +361,9 @@ export function MemberManagement({
                   className="font-mono text-sm"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                  <span>Uses: {admissionStatus.activeInviteLink.currentUses}</span>
+                  <span>
+                    Uses: {admissionStatus.activeInviteLink.currentUses}
+                  </span>
                   {admissionStatus.activeInviteLink.maxUses && (
                     <span>Max: {admissionStatus.activeInviteLink.maxUses}</span>
                   )}
@@ -349,11 +373,15 @@ export function MemberManagement({
 
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold">{admissionStatus.stats.totalJoins}</p>
+                <p className="text-2xl font-bold">
+                  {admissionStatus.stats.totalJoins}
+                </p>
                 <p className="text-sm text-muted-foreground">Total Joins</p>
               </div>
               <div>
-                <p className="text-2xl font-bold">{admissionStatus.stats.recentJoins}</p>
+                <p className="text-2xl font-bold">
+                  {admissionStatus.stats.recentJoins}
+                </p>
                 <p className="text-sm text-muted-foreground">Recent (24h)</p>
               </div>
             </div>
@@ -415,55 +443,58 @@ export function MemberManagement({
                     <span className="ml-1">{member.role}</span>
                   </Badge>
 
-                  {permissions.permissions.canManageMembers && canManageRole(member.role) && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedMember(member)}
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Manage Member</DialogTitle>
-                          <DialogDescription>
-                            Manage {member.user.displayName || member.user.username}'s role and access
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
+                  {permissions.permissions.canManageMembers &&
+                    canManageRole(member.role) && (
+                      <Dialog>
+                        <DialogTrigger asChild>
                           <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => {
-                              setSelectedMember(member);
-                              setNewRole(member.role);
-                              setShowRoleDialog(true);
-                            }}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedMember(member)}
                           >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Change Role
+                            <MoreHorizontal className="w-4 h-4" />
                           </Button>
-                          
-                          {member.role !== ProjectRole.OWNER && (
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Manage Member</DialogTitle>
+                            <DialogDescription>
+                              Manage{" "}
+                              {member.user.displayName || member.user.username}
+                              &apos;s role and access
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4">
                             <Button
-                              variant="destructive"
+                              variant="outline"
                               className="w-full"
                               onClick={() => {
                                 setSelectedMember(member);
-                                setShowRemoveDialog(true);
+                                setNewRole(member.role);
+                                setShowRoleDialog(true);
                               }}
                             >
-                              <UserX className="w-4 h-4 mr-2" />
-                              Remove from Project
+                              <Settings className="w-4 h-4 mr-2" />
+                              Change Role
                             </Button>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
+
+                            {member.role !== ProjectRole.OWNER && (
+                              <Button
+                                variant="destructive"
+                                className="w-full"
+                                onClick={() => {
+                                  setSelectedMember(member);
+                                  setShowRemoveDialog(true);
+                                }}
+                              >
+                                <UserX className="w-4 h-4 mr-2" />
+                                Remove from Project
+                              </Button>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                 </div>
               </div>
             ))}
@@ -477,13 +508,17 @@ export function MemberManagement({
           <DialogHeader>
             <DialogTitle>Change Member Role</DialogTitle>
             <DialogDescription>
-              Update {selectedMember?.user.displayName}'s role in this project
+              Update {selectedMember?.user.displayName}&apos;s role in this
+              project
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="role">New Role</Label>
-              <Select value={newRole} onValueChange={(value) => setNewRole(value as ProjectRole)}>
+              <Select
+                value={newRole}
+                onValueChange={(value) => setNewRole(value as ProjectRole)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -542,8 +577,8 @@ export function MemberManagement({
               Remove Member
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove {selectedMember?.user.displayName} from this project?
-              This action cannot be undone.
+              Are you sure you want to remove {selectedMember?.user.displayName}{" "}
+              from this project? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -559,10 +594,17 @@ export function MemberManagement({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRemoveDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRemoveDialog(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleRemoveMember} disabled={isLoading}>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveMember}
+              disabled={isLoading}
+            >
               {isLoading ? "Removing..." : "Remove Member"}
             </Button>
           </DialogFooter>

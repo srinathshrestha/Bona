@@ -1,23 +1,39 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  FolderOpen, 
-  MessageSquare, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  Users,
+  FolderOpen,
+  MessageSquare,
+  CheckCircle,
+  XCircle,
   User,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import { SignUpButton, SignInButton } from "@clerk/nextjs";
 import { InvitationService } from "@/lib/database";
 import { JoinActions } from "./join-actions";
+
+// Project interface for the join page
+interface ProjectPreviewData {
+  id: string;
+  name: string;
+  description?: string | null;
+  owner: {
+    displayName?: string | null;
+    username: string | null;
+    avatar?: string | null;
+  };
+  stats: {
+    members: number;
+    files: number;
+    messages: number;
+  };
+  token: string;
+}
 
 // Interface for the page props
 interface JoinPageProps {
@@ -42,7 +58,7 @@ function InvitationError({ error }: { error: string }) {
         <CardContent className="text-center">
           <p className="text-red-700 dark:text-red-300 mb-6">{error}</p>
           <Button
-            onClick={() => window.location.href = "/"}
+            onClick={() => (window.location.href = "/")}
             variant="outline"
             className="w-full"
           >
@@ -55,7 +71,7 @@ function InvitationError({ error }: { error: string }) {
 }
 
 // Component to display project information
-function ProjectPreview({ project }: { project: any }) {
+function ProjectPreview({ project }: { project: ProjectPreviewData }) {
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -69,7 +85,7 @@ function ProjectPreview({ project }: { project: any }) {
           {project.description && (
             <p className="text-muted-foreground">{project.description}</p>
           )}
-          
+
           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
             <div className="flex items-center">
               <User className="w-4 h-4 mr-1" />
@@ -109,7 +125,13 @@ function ProjectPreview({ project }: { project: any }) {
 }
 
 // Component for authenticated users
-function AuthenticatedJoinFlow({ token, project }: { token: string; project: any }) {
+function AuthenticatedJoinFlow({
+  token,
+  project,
+}: {
+  token: string;
+  project: ProjectPreviewData;
+}) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -121,7 +143,7 @@ function AuthenticatedJoinFlow({ token, project }: { token: string; project: any
             Join Project
           </h1>
           <p className="text-muted-foreground">
-            You've been invited to collaborate on this project
+            You&apos;ve been invited to collaborate on this project
           </p>
         </div>
 
@@ -131,10 +153,12 @@ function AuthenticatedJoinFlow({ token, project }: { token: string; project: any
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Your role will be:</span>
+                <span className="text-muted-foreground">
+                  Your role will be:
+                </span>
                 <Badge variant="secondary">Member</Badge>
               </div>
-              
+
               <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-4">
                 <div className="flex items-start space-x-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
@@ -162,7 +186,7 @@ function AuthenticatedJoinFlow({ token, project }: { token: string; project: any
 }
 
 // Component for unauthenticated users
-function UnauthenticatedJoinFlow({ project }: { project: any }) {
+function UnauthenticatedJoinFlow({ project }: { project: ProjectPreviewData }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950 dark:to-pink-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -170,9 +194,7 @@ function UnauthenticatedJoinFlow({ project }: { project: any }) {
           <div className="mx-auto mb-4 w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
             <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">
-            Join Bona
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Join Bona</h1>
           <p className="text-muted-foreground">
             Sign up to join this collaborative project
           </p>
@@ -190,7 +212,10 @@ function UnauthenticatedJoinFlow({ project }: { project: any }) {
               </div>
 
               <div className="space-y-3">
-                <SignUpButton mode="modal" forceRedirectUrl={`/join/${project.token}`}>
+                <SignUpButton
+                  mode="modal"
+                  forceRedirectUrl={`/join/${project.token}`}
+                >
                   <Button className="w-full" size="lg">
                     <User className="w-4 h-4 mr-2" />
                     Create Account & Join
@@ -208,7 +233,10 @@ function UnauthenticatedJoinFlow({ project }: { project: any }) {
                   </div>
                 </div>
 
-                <SignInButton mode="modal" forceRedirectUrl={`/join/${project.token}`}>
+                <SignInButton
+                  mode="modal"
+                  forceRedirectUrl={`/join/${project.token}`}
+                >
                   <Button variant="outline" className="w-full" size="lg">
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Sign In to Join
@@ -224,7 +252,7 @@ function UnauthenticatedJoinFlow({ project }: { project: any }) {
                       What happens after you sign up?
                     </p>
                     <ul className="text-xs text-purple-700 dark:text-purple-300 mt-1 space-y-1">
-                      <li>• You'll automatically join this project</li>
+                      <li>• You&apos;ll automatically join this project</li>
                       <li>• Get Member access to all project features</li>
                       <li>• Start collaborating immediately</li>
                       <li>• Access project files and team chat</li>
@@ -248,7 +276,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
   try {
     // Validate the invitation token
     const inviteLink = await InvitationService.validateInvitationToken(token);
-    
+
     const project = {
       id: inviteLink.project.id,
       name: inviteLink.project.name,
@@ -274,12 +302,12 @@ export default async function JoinPage({ params }: JoinPageProps) {
         </Suspense>
       );
     }
-
   } catch (error) {
     console.error("Error validating invitation:", error);
-    
+
     // Show error state
-    const errorMessage = error instanceof Error ? error.message : "Invalid invitation link";
+    const errorMessage =
+      error instanceof Error ? error.message : "Invalid invitation link";
     return <InvitationError error={errorMessage} />;
   }
-} 
+}

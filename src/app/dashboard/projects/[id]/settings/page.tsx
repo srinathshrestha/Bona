@@ -209,7 +209,7 @@ export default async function ProjectSettingsPage({
               },
             }))}
             initialPermissions={{
-              role: userRole as any,
+              role: userRole,
               permissions: {
                 canInvite: userRole === "OWNER",
                 canManageMembers: userRole === "OWNER" || userRole === "ADMIN",

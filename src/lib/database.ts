@@ -814,9 +814,9 @@ export class PermissionService {
 // File access service for logging and permission checking
 export class FileAccessService {
   // Helper to get request information
-  static getRequestInfo() {
+  static async getRequestInfo() {
     try {
-      const headersList = headers();
+      const headersList = await headers();
       return {
         ipAddress:
           headersList.get("x-forwarded-for") ||
@@ -839,7 +839,7 @@ export class FileAccessService {
       userAgent?: string;
     }
   ) {
-    const info = requestInfo || this.getRequestInfo();
+    const info = requestInfo || (await this.getRequestInfo());
 
     return prisma.fileAccess.create({
       data: {
@@ -927,6 +927,7 @@ export class FileAccessService {
       offset?: number;
     } = {}
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { userId };
 
     if (options.projectId) {
@@ -1004,6 +1005,7 @@ export class AuditService {
       offset?: number;
     } = {}
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { projectId };
 
     if (options.userId) {
@@ -1151,7 +1153,7 @@ export class RoutePermissionService {
   ): Promise<{ hasAccess: boolean; user?: User }> {
     try {
       const user = await UserService.getUserByClerkId(userId);
-      return { hasAccess: !!user, user };
+      return { hasAccess: !!user, user: user || undefined };
     } catch (error) {
       console.error("Create project permission check error:", error);
       return { hasAccess: false };
