@@ -18,6 +18,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { FileUploadS3 } from "@/components/file-upload-s3";
 import { ProjectInviteDialog } from "@/components/project-invite-dialog";
 import { ProjectChat } from "@/components/project-chat";
+import { ProjectFileManager } from "@/components/project-file-manager";
 import Link from "next/link";
 
 // Interface for project detail props
@@ -271,24 +272,29 @@ export default async function ProjectDetailPage({
               </CardContent>
             </Card>
 
-            {/* Recent Files */}
+            {/* File Management */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center">
                     <FolderOpen className="w-5 h-5 mr-2" />
-                    Recent Files
+                    Project Files
                   </div>
-                  <Button variant="outline" size="sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload
-                  </Button>
+                  <ProjectFileManager
+                    projectId={id}
+                    trigger={
+                      <Button variant="outline" size="sm">
+                        <FolderOpen className="w-4 h-4 mr-2" />
+                        Manage Files
+                      </Button>
+                    }
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {project.files.length > 0 ? (
+                {(project as any).files?.length > 0 ? (
                   <div className="space-y-3">
-                    {project.files.map((file) => (
+                    {(project as any).files.slice(0, 3).map((file: any) => (
                       <div
                         key={file._id?.toString() || file.id}
                         className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
@@ -316,6 +322,18 @@ export default async function ProjectDetailPage({
                         </div>
                       </div>
                     ))}
+                    {(project as any).files.length > 3 && (
+                      <div className="text-center pt-2">
+                        <ProjectFileManager
+                          projectId={id}
+                          trigger={
+                            <Button variant="ghost" size="sm">
+                              View all {(project as any).files.length} files
+                            </Button>
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -326,10 +344,15 @@ export default async function ProjectDetailPage({
                     <p className="text-muted-foreground mb-4">
                       Start by uploading your first file to this project
                     </p>
-                    <Button>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Files
-                    </Button>
+                    <ProjectFileManager
+                      projectId={id}
+                      trigger={
+                        <Button>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload Files
+                        </Button>
+                      }
+                    />
                   </div>
                 )}
               </CardContent>
@@ -341,13 +364,28 @@ export default async function ProjectDetailPage({
             userRole === "ADMIN" ||
             userRole === "MEMBER") && (
             <div>
-              <FileUploadS3 projectId={id} />
+              <FileUploadS3 projectId={id} userRole={userRole} />
             </div>
           )}
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <ProjectChat projectId={id} userRole={userRole} />
+
+            <ProjectFileManager
+              projectId={id}
+              trigger={
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardContent className="p-6 text-center">
+                    <FolderOpen className="w-8 h-8 text-primary mx-auto mb-2" />
+                    <p className="font-medium text-foreground">File Manager</p>
+                    <p className="text-sm text-muted-foreground">
+                      Manage project files
+                    </p>
+                  </CardContent>
+                </Card>
+              }
+            />
 
             <ProjectInviteDialog
               projectId={id}

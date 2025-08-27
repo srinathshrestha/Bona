@@ -1,23 +1,44 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  MessageSquare, 
-  Send, 
-  Reply, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  MessageSquare,
+  Send,
+  Reply,
   Users,
   Loader2,
   ChevronDown,
   ChevronUp,
-  X
+  X,
+  Paperclip,
+  Download,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+
+// Interface for file data
+interface FileData {
+  _id: string;
+  filename: string;
+  originalName: string;
+  fileSize: number;
+  mimeType: string;
+  s3Key: string;
+  uploadedById: string;
+  createdAt: string;
+}
 
 // Interface for message data
 interface Message {
@@ -40,6 +61,12 @@ interface Message {
       avatar: string | null;
     };
   } | null;
+  attachments?: Array<{
+    fileId: string;
+    filename: string;
+    mimeType: string;
+    fileSize: number;
+  }>;
   _count: {
     replies: number;
   };
@@ -52,13 +79,20 @@ interface ProjectChatProps {
   trigger?: React.ReactNode;
 }
 
-export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) {
+export function ProjectChat({
+  projectId,
+  userRole,
+  trigger,
+}: ProjectChatProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [mentioningFile, setMentioningFile] = useState<FileData | null>(null);
+  const [projectFiles, setProjectFiles] = useState<FileData[]>([]);
+  const [showFilePicker, setShowFilePicker] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,38 +100,18 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
   // Check if user can send messages
   const canSendMessages = userRole !== "VIEWER";
 
-  // Fetch messages when dialog opens
-  useEffect(() => {
-    if (open) {
-      fetchMessages();
-      // Set up polling for new messages
-      const interval = setInterval(fetchMessages, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [open, projectId]);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Focus input when replying
-  useEffect(() => {
-    if (replyingTo && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [replyingTo]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
-      if (!loading) setLoading(true);
-      
-      const response = await fetch(`/api/projects/${projectId}/messages?limit=100`);
-      
+      setLoading(true);
+
+      const response = await fetch(
+        `/api/projects/${projectId}/messages?limit=100`
+      );
+
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages || []);
@@ -109,29 +123,120 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  const fetchProjectFiles = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/files?projectId=${projectId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setProjectFiles(data.files || []);
+      } else {
+        console.error("Failed to fetch project files");
+      }
+    } catch (error) {
+      console.error("Error fetching project files:", error);
+    }
+  }, [projectId]);
+
+  // Fetch messages when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchMessages();
+      // Set up polling for new messages only (not files)
+      const interval = setInterval(fetchMessages, 5000); // Reduced frequency from 3s to 5s
+      return () => clearInterval(interval);
+    }
+  }, [open, fetchMessages]);
+
+  // Fetch files only when dialog opens (files don't change as frequently)
+  useEffect(() => {
+    if (open) {
+      fetchProjectFiles();
+    }
+  }, [open, fetchProjectFiles]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Focus input when replying or mentioning file
+  useEffect(() => {
+    if ((replyingTo || mentioningFile) && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [replyingTo, mentioningFile]);
+
+  // Close file picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showFilePicker &&
+        inputRef.current &&
+        !inputRef.current.closest(".relative")?.contains(event.target as Node)
+      ) {
+        setShowFilePicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFilePicker]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending) return;
 
     try {
       setSending(true);
-      
+
+      interface MessagePayload {
+        content: string;
+        replyToId?: string;
+        attachments?: Array<{
+          fileId: string;
+          filename: string;
+          mimeType: string;
+          fileSize: number;
+        }>;
+      }
+
+      const messageData: MessagePayload = {
+        content: newMessage.trim(),
+        replyToId: replyingTo?.id,
+      };
+
+      // Add file attachment if mentioning a file
+      if (mentioningFile) {
+        messageData.attachments = [
+          {
+            fileId: mentioningFile._id,
+            filename: mentioningFile.originalName,
+            mimeType: mentioningFile.mimeType,
+            fileSize: mentioningFile.fileSize,
+          },
+        ];
+      }
+
       const response = await fetch(`/api/projects/${projectId}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          content: newMessage.trim(),
-          replyToId: replyingTo?.id,
-        }),
+        body: JSON.stringify(messageData),
       });
 
       if (response.ok) {
         setNewMessage("");
         setReplyingTo(null);
+        setMentioningFile(null);
         await fetchMessages(); // Refresh messages
+        // If we sent a file attachment, refresh files too
+        if (mentioningFile) {
+          await fetchProjectFiles();
+        }
         scrollToBottom();
       } else {
         const errorData = await response.json();
@@ -163,13 +268,43 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
     if (!user) {
       return `https://ui-avatars.com/api/?name=Unknown%20User&background=random`;
     }
-    return user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      getUserDisplayName(user)
-    )}&background=random`;
+    return (
+      user.avatar ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        getUserDisplayName(user)
+      )}&background=random`
+    );
   };
 
   const formatMessageTime = (timestamp: string) => {
     return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.startsWith("image/")) return "🖼️";
+    if (mimeType.startsWith("video/")) return "🎥";
+    if (mimeType.startsWith("audio/")) return "🎵";
+    if (mimeType.includes("pdf")) return "📄";
+    if (mimeType.includes("word") || mimeType.includes("document")) return "📝";
+    if (mimeType.includes("excel") || mimeType.includes("spreadsheet"))
+      return "📊";
+    if (mimeType.includes("powerpoint") || mimeType.includes("presentation"))
+      return "📈";
+    if (
+      mimeType.includes("zip") ||
+      mimeType.includes("rar") ||
+      mimeType.includes("archive")
+    )
+      return "📦";
+    return "📎";
   };
 
   // Default trigger
@@ -178,18 +313,14 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
       <CardContent className="p-6 text-center">
         <MessageSquare className="w-8 h-8 text-primary mx-auto mb-2" />
         <p className="font-medium text-foreground">Team Chat</p>
-        <p className="text-sm text-muted-foreground">
-          Communicate with team
-        </p>
+        <p className="text-sm text-muted-foreground">Communicate with team</p>
       </CardContent>
     </Card>
   );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
       <DialogContent className="sm:max-w-2xl sm:max-h-[600px] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center justify-between">
@@ -206,18 +337,28 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
                 size="sm"
                 onClick={() => setExpanded(!expanded)}
               >
-                {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {expanded ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </DialogTitle>
         </DialogHeader>
 
         {/* Messages Area */}
-        <div className={`flex-1 overflow-y-auto space-y-3 p-4 ${expanded ? 'min-h-[400px]' : 'min-h-[300px]'}`}>
+        <div
+          className={`flex-1 overflow-y-auto space-y-3 p-4 ${
+            expanded ? "min-h-[400px]" : "min-h-[300px]"
+          }`}
+        >
           {loading && messages.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin mr-2" />
-              <span className="text-sm text-muted-foreground">Loading messages...</span>
+              <span className="text-sm text-muted-foreground">
+                Loading messages...
+              </span>
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-8">
@@ -271,6 +412,39 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
                       <p className="text-sm text-foreground break-words">
                         {message.content}
                       </p>
+
+                      {/* File attachments */}
+                      {message.attachments &&
+                        message.attachments.length > 0 && (
+                          <div className="mt-2 space-y-2">
+                            {message.attachments.map((attachment, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center space-x-2 p-2 bg-muted/20 rounded-lg border"
+                              >
+                                <span className="text-lg">
+                                  {getFileIcon(attachment.mimeType)}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground truncate">
+                                    {attachment.filename}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatFileSize(attachment.fileSize)}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  title="Download file"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       {canSendMessages && (
                         <div className="flex items-center space-x-2 mt-1">
                           <Button
@@ -284,7 +458,10 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
                           </Button>
                           {message._count.replies > 0 && (
                             <span className="text-xs text-muted-foreground">
-                              {message._count.replies} {message._count.replies === 1 ? 'reply' : 'replies'}
+                              {message._count.replies}{" "}
+                              {message._count.replies === 1
+                                ? "reply"
+                                : "replies"}
                             </span>
                           )}
                         </div>
@@ -326,17 +503,119 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
               </div>
             )}
 
+            {/* File mention indicator */}
+            {mentioningFile && (
+              <div className="mb-2 p-2 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">
+                      {getFileIcon(mentioningFile.mimeType)}
+                    </span>
+                    <div>
+                      <span className="text-sm text-muted-foreground">
+                        Mentioning file:
+                      </span>
+                      <p className="text-sm font-medium text-foreground">
+                        {mentioningFile.originalName}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMentioningFile(null)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex space-x-2">
-              <Input
-                ref={inputRef}
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={replyingTo ? "Write a reply..." : "Type a message..."}
-                className="flex-1"
-                disabled={sending}
-                maxLength={1000}
-              />
+              <div className="relative flex-1">
+                <Input
+                  ref={inputRef}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={
+                    replyingTo
+                      ? "Write a reply..."
+                      : mentioningFile
+                      ? "Add a message about this file..."
+                      : "Type a message..."
+                  }
+                  className="pr-10"
+                  disabled={sending}
+                  maxLength={1000}
+                />
+
+                {/* File picker button */}
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowFilePicker(!showFilePicker);
+                      // Refresh files when file picker is opened for the first time
+                      if (!showFilePicker && projectFiles.length === 0) {
+                        fetchProjectFiles();
+                      }
+                    }}
+                    className="h-6 w-6 p-0"
+                    type="button"
+                    title="Mention a file"
+                    disabled={sending}
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* File picker dropdown */}
+                {showFilePicker && projectFiles.length > 0 && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-background border rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
+                    <div className="p-2">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Select a file to mention:
+                      </p>
+                      {projectFiles.map((file) => (
+                        <button
+                          key={file._id}
+                          onClick={() => {
+                            setMentioningFile(file);
+                            setShowFilePicker(false);
+                          }}
+                          className="w-full flex items-center space-x-2 p-2 hover:bg-muted/50 rounded text-left"
+                        >
+                          <span className="text-lg">
+                            {getFileIcon(file.mimeType)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {file.originalName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.fileSize)}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {showFilePicker && projectFiles.length === 0 && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-background border rounded-lg shadow-lg p-4 z-10">
+                    <div className="text-center">
+                      <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        No files uploaded to this project yet
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
               <Button
                 onClick={sendMessage}
                 disabled={!newMessage.trim() || sending}
@@ -349,7 +628,7 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
                 )}
               </Button>
             </div>
-            
+
             <p className="text-xs text-muted-foreground mt-1">
               Press Enter to send, Shift+Enter for new line
             </p>

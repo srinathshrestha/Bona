@@ -15,22 +15,60 @@ export class FileService {
   }
 
   static async createFile(data: any): Promise<IFile> {
+    console.log("💾 [FILE-SERVICE] Starting file creation:", {
+      originalName: data.originalName,
+      fileSize: data.fileSize,
+      mimeType: data.mimeType,
+      projectId: data.projectId,
+      s3Key: data.s3Key,
+      uploadedById: data.uploadedById,
+    });
+
     await this.init();
 
+    console.log(
+      "🔍 [FILE-SERVICE] Looking up user by Clerk ID:",
+      data.uploadedById
+    );
     // Convert uploadedById from Clerk ID to MongoDB ObjectId
     const user = await mongoose
       .model("User")
       .findOne({ clerkId: data.uploadedById });
-    if (!user) throw new Error("User not found");
+      
+    console.log("👤 [FILE-SERVICE] User lookup result:", {
+      found: !!user,
+      userId: user?._id?.toString(),
+      clerkId: data.uploadedById,
+    });
+
+    if (!user) {
+      console.error(
+        "❌ [FILE-SERVICE] User not found for Clerk ID:",
+        data.uploadedById
+      );
+      throw new Error("User not found");
+    }
 
     const fileData = {
       ...data,
       uploadedById: user._id,
     };
 
+    console.log("📋 [FILE-SERVICE] Validating file data...");
     const validatedData = validateFile(fileData);
+    console.log("✅ [FILE-SERVICE] File data validated successfully");
+
+    console.log("💾 [FILE-SERVICE] Creating file document...");
     const file = new File(validatedData);
-    return await file.save();
+    const savedFile = await file.save();
+
+    console.log("✅ [FILE-SERVICE] File saved to database:", {
+      fileId: savedFile._id,
+      originalName: savedFile.originalName,
+      s3Key: savedFile.s3Key,
+    });
+
+    return savedFile;
   }
 
   static async getFilesByProject(

@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Upload, File, X, CheckCircle } from "lucide-react";
 
@@ -19,6 +19,7 @@ interface FileUploadS3Props {
   projectId: string;
   disabled?: boolean;
   onUploadComplete?: (files: UploadedFileData[]) => void;
+  userRole?: string; // Add user role to check permissions
 }
 
 interface UploadingFile {
@@ -33,159 +34,248 @@ export function FileUploadS3({
   projectId,
   disabled = false,
   onUploadComplete,
+  userRole,
 }: FileUploadS3Props) {
   const router = useRouter();
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Handle file selection
-  const handleFileSelect = useCallback((files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    const newFiles: UploadingFile[] = Array.from(files).map((file) => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-      progress: 0,
-      status: "pending",
-    }));
-
-    setUploadingFiles((prev) => [...prev, ...newFiles]);
-
-    // Start uploading files
-    newFiles.forEach(uploadFile);
-  }, []);
+  // Check if user can upload (MEMBER or above)
+  const canUpload = userRole && ["OWNER", "ADMIN", "MEMBER"].includes(userRole);
+  const isDisabled = disabled || !canUpload;
 
   // Upload individual file
-  const uploadFile = async (uploadingFile: UploadingFile) => {
-    try {
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.id === uploadingFile.id ? { ...f, status: "uploading" } : f
-        )
-      );
-
-      // Step 1: Get presigned URL
-      const presignResponse = await fetch("/api/files/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          filename: uploadingFile.file.name,
-          contentType: uploadingFile.file.type,
-          fileSize: uploadingFile.file.size,
-        }),
+  const uploadFile = useCallback(
+    async (uploadingFile: UploadingFile) => {
+      console.log("🚀 [CLIENT-UPLOAD] Starting file upload:", {
+        fileName: uploadingFile.file.name,
+        fileSize: uploadingFile.file.size,
+        fileType: uploadingFile.file.type,
+        projectId,
       });
 
-      if (!presignResponse.ok) {
-        throw new Error("Failed to get upload URL");
-      }
+      try {
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadingFile.id ? { ...f, status: "uploading" } : f
+          )
+        );
 
-      const { uploadUrl, s3Key } = await presignResponse.json();
+        console.log("📡 [CLIENT-UPLOAD] Step 1: Requesting presigned URL...");
+        // Step 1: Get presigned URL
+        const presignResponse = await fetch("/api/files/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            filename: uploadingFile.file.name,
+            contentType: uploadingFile.file.type,
+            fileSize: uploadingFile.file.size,
+          }),
+        });
 
-      // Step 2: Upload to S3 with progress tracking
-      const xhr = new XMLHttpRequest();
+        console.log("📡 [CLIENT-UPLOAD] Presigned URL response:", {
+          status: presignResponse.status,
+          statusText: presignResponse.statusText,
+          ok: presignResponse.ok,
+        });
 
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
+        if (!presignResponse.ok) {
+          const errorData = await presignResponse.json();
+          console.error(
+            "❌ [CLIENT-UPLOAD] Failed to get upload URL:",
+            errorData
+          );
+          throw new Error(errorData.error || "Failed to get upload URL");
+        }
+
+        const { uploadUrl, s3Key } = await presignResponse.json();
+        console.log("✅ [CLIENT-UPLOAD] Got presigned URL:", {
+          s3Key,
+          urlLength: uploadUrl.length,
+          urlHost: new URL(uploadUrl).hostname,
+        });
+
+        // Step 2: Upload to S3 with progress tracking
+        console.log("☁️ [CLIENT-UPLOAD] Step 2: Uploading to S3...");
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            console.log("📊 [CLIENT-UPLOAD] Upload progress:", progress + "%");
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadingFile.id ? { ...f, progress } : f
+              )
+            );
+          }
+        });
+
+        xhr.addEventListener("load", async () => {
+          console.log("☁️ [CLIENT-UPLOAD] S3 upload completed:", {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            responseHeaders: xhr.getAllResponseHeaders(),
+          });
+
+          if (xhr.status === 200) {
+            // Step 3: Save file metadata to database
+            console.log("💾 [CLIENT-UPLOAD] Step 3: Saving file metadata...");
+            try {
+              const metadataResponse = await fetch("/api/files", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  projectId,
+                  filename: uploadingFile.file.name,
+                  originalName: uploadingFile.file.name,
+                  fileSize: uploadingFile.file.size,
+                  mimeType: uploadingFile.file.type,
+                  s3Key,
+                }),
+              });
+
+              console.log("💾 [CLIENT-UPLOAD] Metadata save response:", {
+                status: metadataResponse.status,
+                statusText: metadataResponse.statusText,
+                ok: metadataResponse.ok,
+              });
+
+              if (!metadataResponse.ok) {
+                const errorData = await metadataResponse.json();
+                console.error(
+                  "❌ [CLIENT-UPLOAD] Failed to save file metadata:",
+                  errorData
+                );
+                throw new Error(
+                  errorData.error || "Failed to save file metadata"
+                );
+              }
+
+              const savedFile = await metadataResponse.json();
+              console.log(
+                "✅ [CLIENT-UPLOAD] File metadata saved successfully:",
+                {
+                  fileId: savedFile.fileId,
+                  fileName: savedFile.fileName,
+                }
+              );
+
+              setUploadingFiles((prev) =>
+                prev.map((f) =>
+                  f.id === uploadingFile.id
+                    ? { ...f, status: "completed", progress: 100 }
+                    : f
+                )
+              );
+
+              toast.success(
+                `${uploadingFile.file.name} uploaded successfully!`
+              );
+
+              if (onUploadComplete) {
+                onUploadComplete([savedFile]);
+              }
+            } catch (error) {
+              console.error(
+                "💥 [CLIENT-UPLOAD] Error saving file metadata:",
+                error
+              );
+              setUploadingFiles((prev) =>
+                prev.map((f) =>
+                  f.id === uploadingFile.id
+                    ? {
+                        ...f,
+                        status: "error",
+                        error: "Failed to save file metadata",
+                      }
+                    : f
+                )
+              );
+              toast.error(`Failed to save ${uploadingFile.file.name}`);
+            }
+          } else {
+            console.error("❌ [CLIENT-UPLOAD] S3 upload failed:", {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              responseText: xhr.responseText,
+            });
+            throw new Error(`Upload failed with status ${xhr.status}`);
+          }
+        });
+
+        xhr.addEventListener("error", (event) => {
+          console.error("💥 [CLIENT-UPLOAD] S3 upload error event:", event);
           setUploadingFiles((prev) =>
             prev.map((f) =>
-              f.id === uploadingFile.id ? { ...f, progress } : f
+              f.id === uploadingFile.id
+                ? {
+                    ...f,
+                    status: "error",
+                    error: "Upload failed",
+                  }
+                : f
             )
           );
-        }
-      });
+          toast.error(`Failed to upload ${uploadingFile.file.name}`);
+        });
 
-      xhr.addEventListener("load", async () => {
-        if (xhr.status === 200) {
-          // Step 3: Save file metadata to database
-          try {
-            const metadataResponse = await fetch("/api/files", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                projectId,
-                filename: uploadingFile.file.name,
-                originalName: uploadingFile.file.name,
-                fileSize: uploadingFile.file.size,
-                mimeType: uploadingFile.file.type,
-                s3Key,
-              }),
-            });
+        xhr.addEventListener("abort", () => {
+          console.warn("⚠️ [CLIENT-UPLOAD] S3 upload aborted");
+        });
 
-            if (!metadataResponse.ok) {
-              throw new Error("Failed to save file metadata");
-            }
+        xhr.addEventListener("timeout", () => {
+          console.error("⏰ [CLIENT-UPLOAD] S3 upload timed out");
+        });
 
-            const savedFile = await metadataResponse.json();
-
-            setUploadingFiles((prev) =>
-              prev.map((f) =>
-                f.id === uploadingFile.id
-                  ? { ...f, status: "completed", progress: 100 }
-                  : f
-              )
-            );
-
-            toast.success(`${uploadingFile.file.name} uploaded successfully!`);
-
-            if (onUploadComplete) {
-              onUploadComplete([savedFile]);
-            }
-          } catch (error) {
-            console.error("Error saving file metadata:", error);
-            setUploadingFiles((prev) =>
-              prev.map((f) =>
-                f.id === uploadingFile.id
-                  ? {
-                      ...f,
-                      status: "error",
-                      error: "Failed to save file metadata",
-                    }
-                  : f
-              )
-            );
-            toast.error(`Failed to save ${uploadingFile.file.name}`);
-          }
-        } else {
-          throw new Error(`Upload failed with status ${xhr.status}`);
-        }
-      });
-
-      xhr.addEventListener("error", () => {
+        console.log("🔄 [CLIENT-UPLOAD] Sending file to S3...");
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", uploadingFile.file.type);
+        xhr.send(uploadingFile.file);
+      } catch (error) {
+        console.error("💥 [CLIENT-UPLOAD] Upload error:", error);
+        console.error(
+          "💥 [CLIENT-UPLOAD] Error stack:",
+          error instanceof Error ? error.stack : "No stack"
+        );
         setUploadingFiles((prev) =>
           prev.map((f) =>
             f.id === uploadingFile.id
               ? {
                   ...f,
                   status: "error",
-                  error: "Upload failed",
+                  error:
+                    error instanceof Error ? error.message : "Upload failed",
                 }
               : f
           )
         );
         toast.error(`Failed to upload ${uploadingFile.file.name}`);
-      });
+      }
+    },
+    [projectId, onUploadComplete]
+  );
 
-      xhr.open("PUT", uploadUrl);
-      xhr.setRequestHeader("Content-Type", uploadingFile.file.type);
-      xhr.send(uploadingFile.file);
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.id === uploadingFile.id
-            ? {
-                ...f,
-                status: "error",
-                error: error instanceof Error ? error.message : "Upload failed",
-              }
-            : f
-        )
-      );
-      toast.error(`Failed to upload ${uploadingFile.file.name}`);
-    }
-  };
+  // Handle file selection
+  const handleFileSelect = useCallback(
+    (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+
+      const newFiles: UploadingFile[] = Array.from(files).map((file) => ({
+        id: Math.random().toString(36).substring(7),
+        file,
+        progress: 0,
+        status: "pending",
+      }));
+
+      setUploadingFiles((prev) => [...prev, ...newFiles]);
+
+      // Start uploading files
+      newFiles.forEach(uploadFile);
+    },
+    [uploadFile]
+  );
 
   // Remove file from upload list
   const removeFile = (fileId: string) => {
@@ -198,22 +288,22 @@ export function FileUploadS3({
       e.preventDefault();
       setIsDragging(false);
 
-      if (disabled) return;
+      if (isDisabled) return;
 
       const files = e.dataTransfer.files;
       handleFileSelect(files);
     },
-    [disabled, handleFileSelect]
+    [isDisabled, handleFileSelect]
   );
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      if (!disabled) {
+      if (!isDisabled) {
         setIsDragging(true);
       }
     },
-    [disabled]
+    [isDisabled]
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -248,18 +338,33 @@ export function FileUploadS3({
 
   return (
     <div className="space-y-6">
+      {/* Permission check message */}
+      {!canUpload && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
+              <Upload className="h-4 w-4" />
+              <p className="text-sm">
+                You need MEMBER role or above to upload files. Current role:{" "}
+                {userRole || "VIEWER"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Upload Area */}
       <Card
         className={`border-2 border-dashed p-8 text-center transition-colors ${
           isDragging
             ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
             : "border-gray-300 hover:border-gray-400"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        } ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => {
-          if (!disabled) {
+          if (!isDisabled) {
             document.getElementById("file-input")?.click();
           }
         }}
@@ -267,7 +372,9 @@ export function FileUploadS3({
         <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-semibold mb-2">Upload Files</h3>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Drag and drop files here, or click to browse
+          {isDisabled
+            ? "You don't have permission to upload files"
+            : "Drag and drop files here, or click to browse"}
         </p>
         <p className="text-sm text-gray-500">Maximum file size: 100MB</p>
 
@@ -276,7 +383,7 @@ export function FileUploadS3({
           type="file"
           multiple
           className="hidden"
-          disabled={disabled}
+          disabled={isDisabled}
           onChange={(e) => handleFileSelect(e.target.files)}
         />
       </Card>

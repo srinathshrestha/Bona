@@ -11,6 +11,16 @@ const messageCreateSchema = z.object({
     .min(1, "Message content is required")
     .max(1000, "Message too long"),
   replyToId: z.string().optional(),
+  attachments: z
+    .array(
+      z.object({
+        fileId: z.string(),
+        filename: z.string(),
+        mimeType: z.string(),
+        fileSize: z.number().positive(),
+      })
+    )
+    .optional(),
 });
 
 // GET /api/projects/[id]/messages - Get project messages
@@ -58,22 +68,32 @@ export async function GET(
       id: message._id.toString(),
       content: message.content,
       createdAt: message.createdAt,
-      user: message.userId ? {
-        id: message.userId._id?.toString() || message.userId.toString(),
-        displayName: message.userId.displayName || null,
-        username: message.userId.username || null,
-        avatar: message.userId.avatar || null,
-      } : null,
-      replyTo: message.replyToId ? {
-        id: message.replyToId._id?.toString() || message.replyToId.toString(),
-        content: message.replyToId.content,
-        user: message.replyToId.userId ? {
-          id: message.replyToId.userId._id?.toString() || message.replyToId.userId.toString(),
-          displayName: message.replyToId.userId.displayName || null,
-          username: message.replyToId.userId.username || null,
-          avatar: message.replyToId.userId.avatar || null,
-        } : null,
-      } : null,
+      user: message.userId
+        ? {
+            id: message.userId._id?.toString() || message.userId.toString(),
+            displayName: message.userId.displayName || null,
+            username: message.userId.username || null,
+            avatar: message.userId.avatar || null,
+          }
+        : null,
+      replyTo: message.replyToId
+        ? {
+            id:
+              message.replyToId._id?.toString() || message.replyToId.toString(),
+            content: message.replyToId.content,
+            user: message.replyToId.userId
+              ? {
+                  id:
+                    message.replyToId.userId._id?.toString() ||
+                    message.replyToId.userId.toString(),
+                  displayName: message.replyToId.userId.displayName || null,
+                  username: message.replyToId.userId.username || null,
+                  avatar: message.replyToId.userId.avatar || null,
+                }
+              : null,
+          }
+        : null,
+      attachments: message.attachments || [],
       _count: {
         replies: message.replyCount || 0,
       },
@@ -144,6 +164,7 @@ export async function POST(
       projectId,
       userId: user._id.toString(),
       replyToId: validatedData.replyToId,
+      attachments: validatedData.attachments,
     };
 
     const message = await MessageService.createMessage(messageData);

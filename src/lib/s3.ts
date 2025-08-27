@@ -59,8 +59,22 @@ export async function getUploadPresignedUrl(
   s3Key: string;
   expiresIn: number;
 }> {
+  console.log("🔧 [S3-SERVICE] Starting presigned URL generation:", {
+    projectId,
+    filename,
+    contentType,
+    fileSize,
+    bucket: BUCKET_NAME,
+    region: process.env.AWS_REGION,
+  });
+
   // Validate file size
   if (fileSize > MAX_FILE_SIZE) {
+    console.error("❌ [S3-SERVICE] File size too large:", {
+      fileSize,
+      maxSize: MAX_FILE_SIZE,
+      maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
+    });
     throw new Error(
       `File size exceeds maximum allowed size of ${
         MAX_FILE_SIZE / 1024 / 1024
@@ -70,6 +84,7 @@ export async function getUploadPresignedUrl(
 
   // Generate unique S3 key
   const s3Key = generateS3Key(projectId, filename);
+  console.log("🔑 [S3-SERVICE] Generated S3 key:", s3Key);
 
   // Create the command for uploading
   const command = new PutObjectCommand({
@@ -87,16 +102,42 @@ export async function getUploadPresignedUrl(
     ServerSideEncryption: "AES256",
   });
 
-  // Generate presigned URL
-  const uploadUrl = await getSignedUrl(s3Client, command, {
-    expiresIn: DEFAULT_EXPIRY,
+  console.log("📝 [S3-SERVICE] PutObjectCommand created:", {
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+    ContentType: contentType,
+    ContentLength: fileSize,
   });
 
-  return {
-    uploadUrl,
-    s3Key,
-    expiresIn: DEFAULT_EXPIRY,
-  };
+  try {
+    // Generate presigned URL
+    console.log("🔗 [S3-SERVICE] Generating presigned URL...");
+    const uploadUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: DEFAULT_EXPIRY,
+    });
+
+    console.log("✅ [S3-SERVICE] Presigned URL generated successfully:", {
+      s3Key,
+      expiresIn: DEFAULT_EXPIRY,
+      urlLength: uploadUrl.length,
+      urlHost: new URL(uploadUrl).hostname,
+    });
+
+    return {
+      uploadUrl,
+      s3Key,
+      expiresIn: DEFAULT_EXPIRY,
+    };
+  } catch (error) {
+    console.error("💥 [S3-SERVICE] Error generating presigned URL:", error);
+    console.error("💥 [S3-SERVICE] S3 client config:", {
+      region: process.env.AWS_REGION,
+      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+      bucket: BUCKET_NAME,
+    });
+    throw error;
+  }
 }
 
 /**
@@ -249,13 +290,24 @@ export function validateFile(
   fileSize: number,
   allowedTypes?: string[]
 ): { isValid: boolean; error?: string } {
+  console.log("🔍 [S3-VALIDATION] Validating file:", {
+    filename,
+    contentType,
+    fileSize,
+    fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
+    maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
+    allowedTypes,
+  });
+
   // Check file size
   if (fileSize > MAX_FILE_SIZE) {
+    const error = `File size (${(fileSize / 1024 / 1024).toFixed(
+      2
+    )}MB) exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`;
+    console.log("❌ [S3-VALIDATION] File too large:", error);
     return {
       isValid: false,
-      error: `File size (${(fileSize / 1024 / 1024).toFixed(
-        2
-      )}MB) exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+      error,
     };
   }
 
@@ -271,11 +323,13 @@ export function validateFile(
     });
 
     if (!isAllowed) {
+      const error = `File type ${contentType} is not allowed. Allowed types: ${allowedTypes.join(
+        ", "
+      )}`;
+      console.log("❌ [S3-VALIDATION] File type not allowed:", error);
       return {
         isValid: false,
-        error: `File type ${contentType} is not allowed. Allowed types: ${allowedTypes.join(
-          ", "
-        )}`,
+        error,
       };
     }
   }
@@ -289,12 +343,18 @@ export function validateFile(
   ];
 
   if (dangerousTypes.includes(contentType)) {
+    const error = "Executable files are not allowed for security reasons";
+    console.log("❌ [S3-VALIDATION] Dangerous file type:", {
+      contentType,
+      error,
+    });
     return {
       isValid: false,
-      error: "Executable files are not allowed for security reasons",
+      error,
     };
   }
 
+  console.log("✅ [S3-VALIDATION] File validation passed");
   return { isValid: true };
 }
 
