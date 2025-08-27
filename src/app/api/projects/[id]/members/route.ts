@@ -5,7 +5,7 @@ import {
   UserService, 
   ProjectService
 } from "@/lib/database";
-import { ProjectRole } from "@prisma/client";
+import { ProjectRole } from "@/lib/database";
 
 // GET /api/projects/[id]/members - Get project members
 export async function GET(

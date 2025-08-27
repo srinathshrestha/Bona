@@ -5,7 +5,7 @@ import {
   UserService,
   PermissionService,
 } from "@/lib/database";
-import { ProjectRole } from "@prisma/client";
+import { ProjectRole } from "@/lib/database";
 
 // GET /api/projects/[id]/invite-stats - Get invitation statistics
 export async function GET(

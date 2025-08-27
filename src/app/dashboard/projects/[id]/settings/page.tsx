@@ -1,11 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
   Save,
-  Trash2,
   Settings,
   AlertTriangle,
   FolderOpen,
@@ -15,6 +13,7 @@ import { ProjectService, UserService } from "@/lib/database";
 import { LoadingButton } from "@/components/loading-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MemberManagement } from "@/components/member-management";
+import { DeleteProjectButton } from "@/components/delete-project-button";
 
 // Interface for project settings props
 interface ProjectSettingsPageProps {
@@ -42,7 +41,7 @@ export default async function ProjectSettingsPage({
   let project;
   try {
     // Get project details with access control
-    project = await ProjectService.getProject(id, user.id);
+    project = await ProjectService.getProject(id, user._id.toString());
   } catch (error) {
     console.error("Error fetching project:", error);
     redirect("/dashboard");
@@ -53,9 +52,14 @@ export default async function ProjectSettingsPage({
   }
 
   // Get user's role in this project
-  const userMembership = project.members.find(
-    (member) => member.userId === user.id
-  );
+  const userMembership = (project as any).members?.find((member: any) => {
+    // Handle both populated and non-populated userId
+    const memberUserId =
+      typeof member.userId === "string"
+        ? member.userId
+        : member.userId._id.toString();
+    return memberUserId === user._id.toString();
+  });
   const userRole = userMembership?.role || "MEMBER";
 
   // Only owners and admins can access settings
@@ -137,8 +141,8 @@ export default async function ProjectSettingsPage({
                       id="owner"
                       name="owner"
                       value={
-                        project.owner.displayName ||
-                        project.owner.username ||
+                        (project.ownerId as any)?.displayName ||
+                        (project.ownerId as any)?.username ||
                         ""
                       }
                       disabled
@@ -197,17 +201,20 @@ export default async function ProjectSettingsPage({
           {/* Member Management */}
           <MemberManagement
             projectId={id}
-            initialMembers={project.members.map((member) => ({
-              ...member,
-              joinedAt: member.joinedAt.toISOString(),
-              user: {
-                id: member.user.id,
-                displayName: member.user.displayName || "",
-                username: member.user.username || "",
-                email: member.user.email,
-                avatar: member.user.avatar || undefined,
-              },
-            }))}
+            initialMembers={
+              (project as any).members?.map((member: any) => ({
+                id: member._id.toString(), // Convert member ObjectId to string
+                role: member.role,
+                joinedAt: member.joinedAt.toISOString(),
+                user: {
+                  id: member.userId._id.toString(),
+                  displayName: member.userId.displayName || "",
+                  username: member.userId.username || "",
+                  email: member.userId.email,
+                  avatar: member.userId.avatar || undefined,
+                },
+              })) || []
+            }
             initialPermissions={{
               role: userRole,
               permissions: {
@@ -230,13 +237,13 @@ export default async function ProjectSettingsPage({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">
-                    {project._count.members}
+                    {(project as any)._count?.members || 0}
                   </div>
                   <p className="text-sm text-muted-foreground">Team Members</p>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">
-                    {project._count.files}
+                    {(project as any)._count?.files || 0}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Files Uploaded
@@ -244,7 +251,7 @@ export default async function ProjectSettingsPage({
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">
-                    {project._count.messages}
+                    {(project as any)._count?.messages || 0}
                   </div>
                   <p className="text-sm text-muted-foreground">Messages Sent</p>
                 </div>
@@ -294,14 +301,10 @@ export default async function ProjectSettingsPage({
                       be certain. This action will permanently delete the
                       project, all files, messages, and remove all team members.
                     </p>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Project
-                    </Button>
+                    <DeleteProjectButton
+                      projectId={id}
+                      projectName={project.name}
+                    />
                   </div>
                 </div>
               </CardContent>

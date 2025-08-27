@@ -108,7 +108,7 @@ export default function ProfilePage() {
               <Link href="/dashboard">
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Dashboard
+                  Back to Projects
                 </Button>
               </Link>
               <h1 className="text-2xl font-bold text-foreground">

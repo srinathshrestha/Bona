@@ -11,7 +11,6 @@ import Link from "next/link";
 interface ProjectFormData {
   name: string;
   description: string;
-  isPrivate: boolean;
 }
 
 export default function CreateProjectPage() {
@@ -23,18 +22,16 @@ export default function CreateProjectPage() {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
     description: "",
-    isPrivate: true,
   });
 
   // Handle form input changes
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      [name]: value,
     }));
   };
 
@@ -79,7 +76,7 @@ export default function CreateProjectPage() {
               <Link href="/dashboard">
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Dashboard
+                  Back to Projects
                 </Button>
               </Link>
               <h1 className="text-2xl font-bold text-primary">
@@ -152,22 +149,12 @@ export default function CreateProjectPage() {
                   />
                 </div>
 
-                {/* Privacy Setting */}
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isPrivate"
-                    name="isPrivate"
-                    checked={formData.isPrivate}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-primary focus:ring-primary border-input rounded"
-                  />
-                  <label
-                    htmlFor="isPrivate"
-                    className="text-sm text-foreground"
-                  >
-                    Private project (only invited members can access)
-                  </label>
+                {/* Info about privacy */}
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-950 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    All projects are private by default. Only invited members
+                    can access your project.
+                  </p>
                 </div>
 
                 {/* Error Message */}

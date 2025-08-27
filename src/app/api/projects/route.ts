@@ -10,7 +10,6 @@ const projectCreateSchema = z.object({
     .min(1, "Project name is required")
     .max(100, "Project name too long"),
   description: z.string().max(500, "Description too long").optional(),
-  isPrivate: z.boolean().optional().default(true),
 });
 
 // POST /api/projects - Create a new project
@@ -31,28 +30,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = projectCreateSchema.parse(body);
 
-    // Create the project
-    const project = await ProjectService.createProject(user.id, {
+    // Create the project (all projects are private by default)
+    const result = await ProjectService.createProject(user._id.toString(), {
       name: validatedData.name,
       description: validatedData.description,
       settings: {
-        isPrivate: validatedData.isPrivate,
+        isPrivate: true, // All projects are private
       },
     });
 
     return NextResponse.json({
       success: true,
       project: {
-        id: project.id,
-        name: project.name,
-        description: project.description,
-        isPrivate: validatedData.isPrivate,
-        createdAt: project.createdAt,
+        id: result.project.id || result.project._id,
+        name: result.project.name,
+        description: result.project.description,
+        isPrivate: true, // Always private
+        createdAt: result.project.createdAt,
         owner: {
-          id: project.owner.id,
-          displayName: project.owner.displayName,
-          username: project.owner.username,
-          avatar: project.owner.avatar,
+          id: user.id,
+          displayName: user.displayName,
+          username: user.username,
+          avatar: user.avatar,
         },
       },
     });
@@ -89,42 +88,46 @@ export async function GET() {
     }
 
     // Get user's projects (both owned and member)
-    const userProjects = await ProjectService.getUserProjects(user.id);
+    const userProjects = await ProjectService.getUserProjects(
+      user._id.toString()
+    );
 
     if (!userProjects) {
       return NextResponse.json({ projects: [] });
     }
 
     // Format the response
-    const ownedProjects = userProjects.ownedProjects.map((project) => ({
-      id: project.id,
+    const ownedProjects = (userProjects.ownedProjects || []).map((project) => ({
+      id: project.id || project._id,
       name: project.name,
       description: project.description,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       role: "OWNER",
-      memberCount: project._count.members,
-      fileCount: project._count.files,
-      messageCount: project._count.messages,
+      memberCount: 0, // We'll need to get this count separately
+      fileCount: 0, // We'll need to get this count separately
+      messageCount: 0, // We'll need to get this count separately
     }));
 
-    const memberProjects = userProjects.projectMembers.map((membership) => ({
-      id: membership.project.id,
-      name: membership.project.name,
-      description: membership.project.description,
-      createdAt: membership.project.createdAt,
-      updatedAt: membership.project.updatedAt,
-      role: membership.role,
-      memberCount: membership.project._count.members,
-      fileCount: membership.project._count.files,
-      messageCount: membership.project._count.messages,
-      owner: {
-        id: membership.project.owner.id,
-        displayName: membership.project.owner.displayName,
-        username: membership.project.owner.username,
-        avatar: membership.project.owner.avatar,
-      },
-    }));
+    const memberProjects = (userProjects.memberProjects || []).map(
+      (project) => ({
+        id: project.id || project._id,
+        name: project.name,
+        description: project.description,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        role: project.membershipRole,
+        memberCount: 0, // We'll need to get this count separately
+        fileCount: 0, // We'll need to get this count separately
+        messageCount: 0, // We'll need to get this count separately
+        owner: {
+          id: project.ownerId,
+          displayName: project.owner?.displayName || "Unknown",
+          username: project.owner?.username || "unknown",
+          avatar: project.owner?.avatar || "",
+        },
+      })
+    );
 
     return NextResponse.json({
       projects: {

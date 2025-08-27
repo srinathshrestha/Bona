@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,13 +58,11 @@ function InvitationError({ error }: { error: string }) {
         </CardHeader>
         <CardContent className="text-center">
           <p className="text-red-700 dark:text-red-300 mb-6">{error}</p>
-          <Button
-            onClick={() => (window.location.href = "/")}
-            variant="outline"
-            className="w-full"
-          >
-            Go to Home
-          </Button>
+          <Link href="/" className="w-full">
+            <Button variant="outline" className="w-full">
+              Go to Home
+            </Button>
+          </Link>
         </CardContent>
       </Card>
     </div>
@@ -277,12 +276,26 @@ export default async function JoinPage({ params }: JoinPageProps) {
     // Validate the invitation token
     const inviteLink = await InvitationService.validateInvitationToken(token);
 
+    if (!inviteLink.projectId) {
+      throw new Error("Project not found");
+    }
+
+    const projectData = inviteLink.projectId as any; // Type assertion since it's populated
+
     const project = {
-      id: inviteLink.project.id,
-      name: inviteLink.project.name,
-      description: inviteLink.project.description,
-      owner: inviteLink.project.owner,
-      stats: inviteLink.project._count,
+      id: projectData._id?.toString() || projectData.id,
+      name: projectData.name || "Unknown Project",
+      description: projectData.description || null,
+      owner: {
+        displayName: projectData.ownerId?.displayName || null,
+        username: projectData.ownerId?.username || "Unknown",
+        avatar: projectData.ownerId?.avatar || null,
+      },
+      stats: {
+        members: 0, // We'll need to get this separately if needed
+        files: 0,
+        messages: 0,
+      },
       token, // Pass token for redirect purposes
     };
 

@@ -30,6 +30,7 @@ import {
   Crown,
   Shield,
   Eye,
+  User,
   MoreHorizontal,
   Activity,
   Settings,
@@ -40,7 +41,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ProjectRole } from "@prisma/client";
+import { ProjectRole } from "@/lib/models/types";
 
 interface Member {
   id: string;
@@ -99,7 +100,7 @@ export function MemberManagement({
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
-  const [newRole, setNewRole] = useState<ProjectRole>(ProjectRole.MEMBER);
+  const [newRole, setNewRole] = useState<ProjectRole>("MEMBER");
   const [reason, setReason] = useState("");
 
   // Load admission status if user is owner
@@ -125,28 +126,28 @@ export function MemberManagement({
 
   const getRoleIcon = (role: ProjectRole) => {
     switch (role) {
-      case ProjectRole.OWNER:
+      case "OWNER":
         return <Crown className="w-4 h-4" />;
-      case ProjectRole.ADMIN:
+      case "ADMIN":
         return <Shield className="w-4 h-4" />;
-      case ProjectRole.MEMBER:
-        return <UserCheck className="w-4 h-4" />;
-      case ProjectRole.VIEWER:
+      case "MEMBER":
+        return <User className="w-4 h-4" />;
+      case "VIEWER":
         return <Eye className="w-4 h-4" />;
       default:
-        return <Users className="w-4 h-4" />;
+        return <User className="w-4 h-4" />;
     }
   };
 
   const getRoleBadgeVariant = (role: ProjectRole) => {
     switch (role) {
-      case ProjectRole.OWNER:
+      case "OWNER":
         return "default" as const;
-      case ProjectRole.ADMIN:
+      case "ADMIN":
         return "secondary" as const;
-      case ProjectRole.MEMBER:
+      case "MEMBER":
         return "outline" as const;
-      case ProjectRole.VIEWER:
+      case "VIEWER":
         return "outline" as const;
       default:
         return "outline" as const;
@@ -154,11 +155,9 @@ export function MemberManagement({
   };
 
   const canManageRole = (targetRole: ProjectRole) => {
-    if (permissions.role === ProjectRole.OWNER) return true;
-    if (permissions.role === ProjectRole.ADMIN) {
-      return (
-        targetRole === ProjectRole.MEMBER || targetRole === ProjectRole.VIEWER
-      );
+    if (permissions.role === "OWNER") return true;
+    if (permissions.role === "ADMIN") {
+      return targetRole === "MEMBER" || targetRole === "VIEWER";
     }
     return false;
   };
@@ -266,10 +265,42 @@ export function MemberManagement({
     }
   };
 
-  const copyInviteLink = () => {
-    if (admissionStatus?.activeInviteLink?.url) {
-      navigator.clipboard.writeText(admissionStatus.activeInviteLink.url);
-      toast.success("Invite link copied to clipboard!");
+  const copyInviteLink = async () => {
+    if (!admissionStatus?.activeInviteLink?.url) return;
+
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(
+          admissionStatus.activeInviteLink.url
+        );
+        toast.success("Invite link copied to clipboard!");
+      } else {
+        // Fallback for unsupported browsers or insecure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = admissionStatus.activeInviteLink.url;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand("copy");
+          if (successful) {
+            toast.success("Invite link copied to clipboard!");
+          } else {
+            throw new Error("Copy command failed");
+          }
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+      toast.error(
+        "Copy to clipboard is not supported in this browser. Please manually copy the link."
+      );
     }
   };
 
@@ -478,7 +509,7 @@ export function MemberManagement({
                               Change Role
                             </Button>
 
-                            {member.role !== ProjectRole.OWNER && (
+                            {member.role !== "OWNER" && (
                               <Button
                                 variant="destructive"
                                 className="w-full"
@@ -523,21 +554,21 @@ export function MemberManagement({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {permissions.role === ProjectRole.OWNER && (
-                    <SelectItem value={ProjectRole.ADMIN}>
+                  {permissions.role === "OWNER" && (
+                    <SelectItem value="ADMIN">
                       <div className="flex items-center">
                         <Shield className="w-4 h-4 mr-2" />
                         Admin
                       </div>
                     </SelectItem>
                   )}
-                  <SelectItem value={ProjectRole.MEMBER}>
+                  <SelectItem value="MEMBER">
                     <div className="flex items-center">
                       <UserCheck className="w-4 h-4 mr-2" />
                       Member
                     </div>
                   </SelectItem>
-                  <SelectItem value={ProjectRole.VIEWER}>
+                  <SelectItem value="VIEWER">
                     <div className="flex items-center">
                       <Eye className="w-4 h-4 mr-2" />
                       Viewer

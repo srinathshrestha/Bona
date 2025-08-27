@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { UserService } from "@/lib/database";
-import { prisma } from "@/lib/prisma";
+import { UserService, PermissionService } from "@/lib/database";
+import { MessageService } from "@/lib/services";
 import { z } from "zod";
 
 // Validation schema for message creation
@@ -35,85 +35,61 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if user is a member of the project
-    const membership = await prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: user.id,
-      },
-    });
+    // Check if user has access to the project
+    const hasAccess = await PermissionService.checkPermission(
+      projectId,
+      user._id.toString(),
+      "VIEWER"
+    );
 
-    if (!membership) {
+    if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Get messages for the project
-    const messages = await prisma.message.findMany({
-      where: {
-        projectId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            displayName: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        replyTo: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                displayName: true,
-                username: true,
-                avatar: true,
-              },
-            },
-          },
-        },
-        attachments: {
-          include: {
-            file: {
-              select: {
-                id: true,
-                filename: true,
-                originalName: true,
-                fileSize: true,
-                mimeType: true,
-                s3Url: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            replies: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: limit,
-      skip: offset,
+    // Get messages using MongoDB service
+    const messages = await MessageService.getMessagesByProject(projectId, {
+      limit,
+      offset,
+      reverse: true, // Get oldest first from DB
     });
 
-    // Get total count for pagination
-    const totalCount = await prisma.message.count({
-      where: {
-        projectId,
+    // Transform messages to match frontend interface
+    const transformedMessages = messages.map((message: any) => ({
+      id: message._id.toString(),
+      content: message.content,
+      createdAt: message.createdAt,
+      user: message.userId ? {
+        id: message.userId._id?.toString() || message.userId.toString(),
+        displayName: message.userId.displayName || null,
+        username: message.userId.username || null,
+        avatar: message.userId.avatar || null,
+      } : null,
+      replyTo: message.replyToId ? {
+        id: message.replyToId._id?.toString() || message.replyToId.toString(),
+        content: message.replyToId.content,
+        user: message.replyToId.userId ? {
+          id: message.replyToId.userId._id?.toString() || message.replyToId.userId.toString(),
+          displayName: message.replyToId.userId.displayName || null,
+          username: message.replyToId.userId.username || null,
+          avatar: message.replyToId.userId.avatar || null,
+        } : null,
+      } : null,
+      _count: {
+        replies: message.replyCount || 0,
       },
-    });
+    }));
+
+    // For simplicity, we'll approximate total count
+    // In production, you might want to implement proper pagination
+    const totalCount = transformedMessages.length + offset;
 
     return NextResponse.json({
-      messages: messages.reverse(), // Reverse to show oldest first
+      messages: transformedMessages, // Keep chronological order: oldest first, newest last
       pagination: {
         total: totalCount,
         limit,
         offset,
-        hasMore: offset + limit < totalCount,
+        hasMore: transformedMessages.length === limit,
       },
     });
   } catch (error) {
@@ -144,20 +120,14 @@ export async function POST(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if user is a member of the project and can chat
-    const membership = await prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: user.id,
-      },
-    });
+    // Check if user can send messages (MEMBER or above)
+    const canChat = await PermissionService.checkPermission(
+      projectId,
+      user._id.toString(),
+      "MEMBER"
+    );
 
-    if (!membership) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
-
-    // VIEWER role cannot send messages
-    if (membership.role === "VIEWER") {
+    if (!canChat) {
       return NextResponse.json(
         { error: "Insufficient permissions to send messages" },
         { status: 403 }
@@ -168,56 +138,15 @@ export async function POST(
     const body = await request.json();
     const validatedData = messageCreateSchema.parse(body);
 
-    // Create the message
-    const message = await prisma.message.create({
-      data: {
-        content: validatedData.content,
-        projectId,
-        userId: user.id,
-        replyToId: validatedData.replyToId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            displayName: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        replyTo: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                displayName: true,
-                username: true,
-                avatar: true,
-              },
-            },
-          },
-        },
-        attachments: {
-          include: {
-            file: {
-              select: {
-                id: true,
-                filename: true,
-                originalName: true,
-                fileSize: true,
-                mimeType: true,
-                s3Url: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            replies: true,
-          },
-        },
-      },
-    });
+    // Create the message using MongoDB service
+    const messageData = {
+      content: validatedData.content,
+      projectId,
+      userId: user._id.toString(),
+      replyToId: validatedData.replyToId,
+    };
+
+    const message = await MessageService.createMessage(messageData);
 
     return NextResponse.json({
       success: true,

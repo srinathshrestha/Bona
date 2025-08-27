@@ -6,17 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  Copy, 
-  ExternalLink, 
-  RefreshCw, 
+import {
+  Users,
+  Copy,
+  ExternalLink,
+  RefreshCw,
   Settings,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Interface for invitation link data
 interface InvitationLink {
@@ -39,17 +48,21 @@ interface ProjectInviteDialogProps {
   size?: "default" | "sm" | "lg";
 }
 
-export function ProjectInviteDialog({ 
-  projectId, 
+export function ProjectInviteDialog({
+  projectId,
   userRole,
   trigger,
   variant = "outline",
-  size = "sm" 
+  size = "sm",
 }: ProjectInviteDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState<InvitationLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [expirationTime, setExpirationTime] = useState<string>("never");
+  const [customExpiration, setCustomExpiration] = useState<string>("");
+  const [maxUses, setMaxUses] = useState<string>("unlimited");
 
   // Check if user can create invite links (OWNER/ADMIN)
   const canCreateInvites = userRole === "OWNER" || userRole === "ADMIN";
@@ -59,7 +72,7 @@ export function ProjectInviteDialog({
     try {
       setLoading(true);
       const response = await fetch(`/api/projects/${projectId}/invite-link`);
-      
+
       if (response.ok) {
         const data = await response.json();
         setInviteLink(data);
@@ -78,47 +91,113 @@ export function ProjectInviteDialog({
   };
 
   // Create new invitation link
-  const createInviteLink = async () => {
+  const createInviteLink = async (useAdvancedSettings = false) => {
     try {
       setLoading(true);
+
+      // Calculate expiration date if set
+      let expiresAt = null;
+      if (useAdvancedSettings && expirationTime !== "never") {
+        const now = new Date();
+        switch (expirationTime) {
+          case "1hour":
+            expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+            break;
+          case "1day":
+            expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            break;
+          case "7days":
+            expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            break;
+          case "30days":
+            expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            break;
+          case "custom":
+            if (customExpiration) {
+              expiresAt = new Date(customExpiration);
+            }
+            break;
+        }
+      }
+
+      // Calculate max uses if set
+      let maxUsesNum = null;
+      if (useAdvancedSettings && maxUses !== "unlimited") {
+        maxUsesNum = parseInt(maxUses);
+      }
+
       const response = await fetch(`/api/projects/${projectId}/invite-link`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({}), // Use default settings
+        body: JSON.stringify({
+          expiresAt: expiresAt?.toISOString(),
+          maxUses: maxUsesNum,
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setInviteLink(data);
         toast.success("Invitation link created!");
+        setShowAdvanced(false); // Close advanced settings
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to create invitation link");
       }
     } catch (error) {
       console.error("Error creating invite link:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create invitation link");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create invitation link"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Copy invitation link to clipboard
+  // Copy invitation link to clipboard with fallback
   const copyToClipboard = async () => {
     if (!inviteLink) return;
 
     try {
-      await navigator.clipboard.writeText(inviteLink.url);
-      setCopied(true);
-      toast.success("Invitation link copied to clipboard!");
-      
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(inviteLink.url);
+        setCopied(true);
+        toast.success("Invitation link copied to clipboard!");
+      } else {
+        // Fallback for unsupported browsers or insecure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = inviteLink.url;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand("copy");
+          if (successful) {
+            setCopied(true);
+            toast.success("Invitation link copied to clipboard!");
+          } else {
+            throw new Error("Copy command failed");
+          }
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+
       // Reset copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error("Error copying to clipboard:", error);
-      toast.error("Failed to copy link");
+      toast.error(
+        "Copy to clipboard is not supported in this browser. Please manually copy the link."
+      );
     }
   };
 
@@ -140,9 +219,7 @@ export function ProjectInviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center">
@@ -169,25 +246,31 @@ export function ProjectInviteDialog({
                 // Loading state
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                  <span className="text-sm text-muted-foreground">Loading...</span>
+                  <span className="text-sm text-muted-foreground">
+                    Loading...
+                  </span>
                 </div>
               ) : inviteLink ? (
                 // Show existing invitation link
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Badge variant="default" className="bg-green-100 text-green-800">
+                      <Badge
+                        variant="default"
+                        className="bg-green-100 text-green-800"
+                      >
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Active
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        {inviteLink.currentUses}/{inviteLink.maxUses || "∞"} uses
+                        {inviteLink.currentUses}/{inviteLink.maxUses || "∞"}{" "}
+                        uses
                       </span>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={createInviteLink}
+                      onClick={() => createInviteLink(false)}
                       disabled={loading}
                     >
                       <RefreshCw className="w-4 h-4 mr-1" />
@@ -221,15 +304,23 @@ export function ProjectInviteDialog({
 
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p>• Share this link with team members to invite them</p>
-                    <p>• Link expires: {inviteLink.expiresAt ? new Date(inviteLink.expiresAt).toLocaleDateString() : "Never"}</p>
-                    <p>• Created: {new Date(inviteLink.createdAt).toLocaleDateString()}</p>
+                    <p>
+                      • Link expires:{" "}
+                      {inviteLink.expiresAt
+                        ? new Date(inviteLink.expiresAt).toLocaleDateString()
+                        : "Never"}
+                    </p>
+                    <p>
+                      • Created:{" "}
+                      {new Date(inviteLink.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
 
                   <div className="flex justify-between">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(inviteLink.url, '_blank')}
+                      onClick={() => window.open(inviteLink.url, "_blank")}
                     >
                       <ExternalLink className="w-4 h-4 mr-1" />
                       Preview
@@ -237,41 +328,278 @@ export function ProjectInviteDialog({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        // Navigate to project settings for advanced options
-                        window.location.href = `/dashboard/projects/${projectId}/settings`;
-                      }}
+                      onClick={() => setShowAdvanced(!showAdvanced)}
                     >
                       <Settings className="w-4 h-4 mr-1" />
                       Advanced
+                      {showAdvanced ? (
+                        <ChevronUp className="w-4 h-4 ml-1" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 ml-1" />
+                      )}
                     </Button>
                   </div>
+
+                  {/* Advanced form for existing link */}
+                  {showAdvanced && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="text-center">
+                        <h4 className="font-medium text-sm">
+                          Regenerate with New Settings
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Create a new link with custom expiration and usage
+                          limits
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Expiration Time */}
+                        <div>
+                          <Label htmlFor="expiration-existing">
+                            Link Expiration
+                          </Label>
+                          <Select
+                            value={expirationTime}
+                            onValueChange={setExpirationTime}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select expiration time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="never">
+                                Never expires
+                              </SelectItem>
+                              <SelectItem value="1hour">1 hour</SelectItem>
+                              <SelectItem value="1day">1 day</SelectItem>
+                              <SelectItem value="7days">7 days</SelectItem>
+                              <SelectItem value="30days">30 days</SelectItem>
+                              <SelectItem value="custom">
+                                Custom date
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Custom Expiration Date */}
+                        {expirationTime === "custom" && (
+                          <div>
+                            <Label htmlFor="customExpiration-existing">
+                              Custom Expiration Date
+                            </Label>
+                            <Input
+                              id="customExpiration-existing"
+                              type="datetime-local"
+                              value={customExpiration}
+                              onChange={(e) =>
+                                setCustomExpiration(e.target.value)
+                              }
+                              min={new Date().toISOString().slice(0, 16)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Max Uses */}
+                        <div>
+                          <Label htmlFor="maxUses-existing">Maximum Uses</Label>
+                          <Select value={maxUses} onValueChange={setMaxUses}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select usage limit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unlimited">
+                                Unlimited
+                              </SelectItem>
+                              <SelectItem value="1">1 use</SelectItem>
+                              <SelectItem value="5">5 uses</SelectItem>
+                              <SelectItem value="10">10 uses</SelectItem>
+                              <SelectItem value="25">25 uses</SelectItem>
+                              <SelectItem value="50">50 uses</SelectItem>
+                              <SelectItem value="100">100 uses</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="flex space-x-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAdvanced(false)}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => createInviteLink(true)}
+                          disabled={loading}
+                          className="flex-1"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Regenerating...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Regenerate Link
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
-                // No invitation link exists - show create button
-                <div className="text-center py-6 space-y-4">
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Users className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Create Invitation Link</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Generate a secure link to invite new team members
-                    </p>
-                  </div>
-                  <Button onClick={createInviteLink} disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Users className="w-4 h-4 mr-2" />
-                        Create Invitation Link
-                      </>
-                    )}
-                  </Button>
+                // No invitation link exists - show create form
+                <div className="space-y-6">
+                  {!showAdvanced ? (
+                    // Simple create form
+                    <div className="text-center py-6 space-y-4">
+                      <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Create Invitation Link</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Generate a secure link to invite new team members
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <Button
+                          onClick={() => createInviteLink(false)}
+                          disabled={loading}
+                          className="w-full"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Users className="w-4 h-4 mr-2" />
+                              Create Invitation Link
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAdvanced(true)}
+                          className="w-full"
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          Advanced Settings
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Advanced create form
+                    <div className="space-y-6">
+                      <div className="text-center">
+                        <h3 className="font-medium">
+                          Advanced Invitation Settings
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Customize your invitation link with expiration and
+                          usage limits
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Expiration Time */}
+                        <div>
+                          <Label htmlFor="expiration">Link Expiration</Label>
+                          <Select
+                            value={expirationTime}
+                            onValueChange={setExpirationTime}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select expiration time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="never">
+                                Never expires
+                              </SelectItem>
+                              <SelectItem value="1hour">1 hour</SelectItem>
+                              <SelectItem value="1day">1 day</SelectItem>
+                              <SelectItem value="7days">7 days</SelectItem>
+                              <SelectItem value="30days">30 days</SelectItem>
+                              <SelectItem value="custom">
+                                Custom date
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Custom Expiration Date */}
+                        {expirationTime === "custom" && (
+                          <div>
+                            <Label htmlFor="customExpiration">
+                              Custom Expiration Date
+                            </Label>
+                            <Input
+                              id="customExpiration"
+                              type="datetime-local"
+                              value={customExpiration}
+                              onChange={(e) =>
+                                setCustomExpiration(e.target.value)
+                              }
+                              min={new Date().toISOString().slice(0, 16)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Max Uses */}
+                        <div>
+                          <Label htmlFor="maxUses">Maximum Uses</Label>
+                          <Select value={maxUses} onValueChange={setMaxUses}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select usage limit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unlimited">
+                                Unlimited
+                              </SelectItem>
+                              <SelectItem value="1">1 use</SelectItem>
+                              <SelectItem value="5">5 uses</SelectItem>
+                              <SelectItem value="10">10 uses</SelectItem>
+                              <SelectItem value="25">25 uses</SelectItem>
+                              <SelectItem value="50">50 uses</SelectItem>
+                              <SelectItem value="100">100 uses</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="flex space-x-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAdvanced(false)}
+                          className="flex-1"
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          onClick={() => createInviteLink(true)}
+                          disabled={loading}
+                          className="flex-1"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Users className="w-4 h-4 mr-2" />
+                              Create Link
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>

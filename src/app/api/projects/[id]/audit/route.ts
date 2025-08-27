@@ -5,7 +5,7 @@ import {
   UserService, 
   AuditService 
 } from "@/lib/database";
-import { ProjectRole } from "@prisma/client";
+import { ProjectRole } from "@/lib/database";
 
 // GET /api/projects/[id]/audit - Get project audit trail
 export async function GET(

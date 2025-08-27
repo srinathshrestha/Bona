@@ -100,7 +100,7 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
       
       if (response.ok) {
         const data = await response.json();
-        setMessages(data.messages);
+        setMessages(data.messages || []);
       } else {
         console.error("Failed to fetch messages");
       }
@@ -153,10 +153,16 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
   };
 
   const getUserDisplayName = (user: Message["user"]) => {
+    if (!user) {
+      return "Unknown User";
+    }
     return user.displayName || user.username || "Unknown User";
   };
 
   const getUserAvatar = (user: Message["user"]) => {
+    if (!user) {
+      return `https://ui-avatars.com/api/?name=Unknown%20User&background=random`;
+    }
     return user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(
       getUserDisplayName(user)
     )}&background=random`;
@@ -227,7 +233,7 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
             messages.map((message) => (
               <div key={message.id} className="space-y-2">
                 {/* Reply context */}
-                {message.replyTo && (
+                {message.replyTo && message.replyTo.user && (
                   <div className="ml-4 pl-4 border-l-2 border-muted bg-muted/20 rounded-r-lg p-2">
                     <div className="flex items-center space-x-2 mb-1">
                       <img
@@ -246,44 +252,46 @@ export function ProjectChat({ projectId, userRole, trigger }: ProjectChatProps) 
                 )}
 
                 {/* Main message */}
-                <div className="flex items-start space-x-3">
-                  <img
-                    src={getUserAvatar(message.user)}
-                    alt={getUserDisplayName(message.user)}
-                    className="w-8 h-8 rounded-full flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {getUserDisplayName(message.user)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatMessageTime(message.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground break-words">
-                      {message.content}
-                    </p>
-                    {canSendMessages && (
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setReplyingTo(message)}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <Reply className="w-3 h-3 mr-1" />
-                          Reply
-                        </Button>
-                        {message._count.replies > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            {message._count.replies} {message._count.replies === 1 ? 'reply' : 'replies'}
-                          </span>
-                        )}
+                {message.user && (
+                  <div className="flex items-start space-x-3">
+                    <img
+                      src={getUserAvatar(message.user)}
+                      alt={getUserDisplayName(message.user)}
+                      className="w-8 h-8 rounded-full flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-sm font-medium text-foreground">
+                          {getUserDisplayName(message.user)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatMessageTime(message.createdAt)}
+                        </span>
                       </div>
-                    )}
+                      <p className="text-sm text-foreground break-words">
+                        {message.content}
+                      </p>
+                      {canSendMessages && (
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setReplyingTo(message)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <Reply className="w-3 h-3 mr-1" />
+                            Reply
+                          </Button>
+                          {message._count.replies > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {message._count.replies} {message._count.replies === 1 ? 'reply' : 'replies'}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ))
           )}

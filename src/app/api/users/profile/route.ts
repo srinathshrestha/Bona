@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { UserService } from "@/lib/database";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+// Removed Prisma import - using native types
 
 // Validation schema for profile updates
 const profileUpdateSchema = z.object({

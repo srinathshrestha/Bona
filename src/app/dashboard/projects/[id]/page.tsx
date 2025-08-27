@@ -15,7 +15,7 @@ import {
 import { ProjectService, UserService } from "@/lib/database";
 import { LoadingButton } from "@/components/loading-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { FileUploadUploadThing } from "@/components/file-upload-uploadthing";
+import { FileUploadS3 } from "@/components/file-upload-s3";
 import { ProjectInviteDialog } from "@/components/project-invite-dialog";
 import { ProjectChat } from "@/components/project-chat";
 import Link from "next/link";
@@ -46,7 +46,7 @@ export default async function ProjectDetailPage({
   let project;
   try {
     // Get project details with access control
-    project = await ProjectService.getProject(id, user.id);
+    project = await ProjectService.getProject(id, user._id.toString());
   } catch (error) {
     console.error("Error fetching project:", error);
     redirect("/dashboard");
@@ -57,9 +57,14 @@ export default async function ProjectDetailPage({
   }
 
   // Get user's role in this project
-  const userMembership = project.members.find(
-    (member) => member.userId === user.id
-  );
+  const userMembership = (project as any).members?.find((member: any) => {
+    // Handle both populated and non-populated userId
+    const memberUserId =
+      typeof member.userId === "string"
+        ? member.userId
+        : member.userId._id.toString();
+    return memberUserId === user._id.toString();
+  });
   const userRole = userMembership?.role || "MEMBER";
 
   return (
@@ -77,7 +82,7 @@ export default async function ProjectDetailPage({
                 className="hover:bg-accent hover:text-accent-foreground"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Back to Dashboard</span>
+                <span className="hidden sm:inline">Back to Projects</span>
                 <span className="sm:hidden">Back</span>
               </LoadingButton>
               <div className="flex items-center space-x-2 flex-1 sm:flex-none">
@@ -142,7 +147,9 @@ export default async function ProjectDetailPage({
                     </div>
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-1" />
-                      {project.owner.displayName || project.owner.username}
+                      {project.ownerId?.displayName ||
+                        project.ownerId?.username ||
+                        "Unknown Owner"}
                     </div>
                   </div>
                 </CardContent>
@@ -223,16 +230,16 @@ export default async function ProjectDetailPage({
                 <div className="space-y-3">
                   {project.members.map((member) => (
                     <div
-                      key={member.id}
+                      key={member._id?.toString() || member.id}
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                     >
                       <div className="flex items-center space-x-3">
-                        {member.user.avatar ? (
+                        {member.userId?.avatar ? (
                           <img
-                            src={member.user.avatar}
+                            src={member.userId.avatar}
                             alt={
-                              member.user.displayName ||
-                              member.user.username ||
+                              member.userId.displayName ||
+                              member.userId.username ||
                               "User"
                             }
                             className="w-8 h-8 rounded-full"
@@ -244,10 +251,12 @@ export default async function ProjectDetailPage({
                         )}
                         <div>
                           <p className="font-medium text-foreground">
-                            {member.user.displayName || member.user.username}
+                            {member.userId?.displayName ||
+                              member.userId?.username ||
+                              "Unknown User"}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {member.user.email}
+                            {member.userId?.email || "No email"}
                           </p>
                         </div>
                       </div>
@@ -281,7 +290,7 @@ export default async function ProjectDetailPage({
                   <div className="space-y-3">
                     {project.files.map((file) => (
                       <div
-                        key={file.id}
+                        key={file._id?.toString() || file.id}
                         className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                       >
                         <div className="flex items-center space-x-3">
@@ -294,8 +303,9 @@ export default async function ProjectDetailPage({
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {new Date(file.createdAt).toLocaleDateString()} •{" "}
-                              {file.uploadedBy.displayName ||
-                                file.uploadedBy.username}
+                              {file.uploadedById?.displayName ||
+                                file.uploadedById?.username ||
+                                "Unknown User"}
                             </p>
                           </div>
                         </div>
@@ -331,7 +341,7 @@ export default async function ProjectDetailPage({
             userRole === "ADMIN" ||
             userRole === "MEMBER") && (
             <div>
-              <FileUploadUploadThing projectId={id} />
+              <FileUploadS3 projectId={id} />
             </div>
           )}
 

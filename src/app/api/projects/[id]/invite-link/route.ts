@@ -44,8 +44,8 @@ export async function GET(
       currentUses: inviteLink.currentUses,
       expiresAt: inviteLink.expiresAt,
       createdAt: inviteLink.createdAt,
-      createdBy: inviteLink.createdBy,
-      project: inviteLink.project,
+      createdById: inviteLink.createdById,
+      projectId: inviteLink.projectId,
       url: `${
         process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/join/${inviteLink.secretToken}`,
@@ -90,10 +90,10 @@ export async function POST(
       ? new Date(options.expiresAt)
       : undefined;
 
-    // Create invitation link
+    // Create invitation link - use explicit _id.toString()
     const inviteLink = await InvitationService.createInvitationLink(
       projectId,
-      user.id,
+      user._id.toString(),
       {
         maxUses: options.maxUses,
         expiresAt,
@@ -110,8 +110,8 @@ export async function POST(
         currentUses: inviteLink.currentUses,
         expiresAt: inviteLink.expiresAt,
         createdAt: inviteLink.createdAt,
-        createdBy: inviteLink.createdBy,
-        project: inviteLink.project,
+        createdById: inviteLink.createdById,
+        projectId: inviteLink.projectId,
         url: `${
           process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
         }/join/${inviteLink.secretToken}`,
@@ -158,7 +158,10 @@ export async function DELETE(
     }
 
     // Deactivate invitation link
-    await InvitationService.deactivateInvitationLink(projectId, user.id);
+    await InvitationService.deactivateInvitationLink(
+      projectId,
+      user._id.toString()
+    );
 
     return NextResponse.json({
       message: "Invitation link deactivated successfully",
