@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingButton } from "@/components/loading-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -14,9 +15,9 @@ import {
   Calendar,
   Settings,
   ChevronRight,
-  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 
 // Interface for project data
@@ -49,24 +50,26 @@ interface ProjectsResponse {
 
 export default function DashboardPage() {
   const { user: clerkUser, isLoaded } = useUser();
+  const [dbUser, setDbUser] = useState<{
+    id: string;
+    clerkId: string;
+    email: string;
+    username?: string;
+    displayName?: string;
+    bio?: string;
+    avatar?: string;
+    isOnboarded: boolean;
+    settings?: Record<string, unknown>;
+    createdAt: string;
+  } | null>(null);
   const [projects, setProjects] = useState<ProjectsResponse["projects"] | null>(
     null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch projects on component mount
-  useEffect(() => {
-    if (isLoaded && clerkUser) {
-      fetchProjects();
-    }
-  }, [isLoaded, clerkUser]);
-
   const fetchProjects = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const response = await fetch("/api/projects");
 
       if (!response.ok) {
@@ -77,10 +80,36 @@ export default function DashboardPage() {
       setProjects(data.projects);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
+    }
+  };
+
+  const fetchUserAndProjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch user from database
+      const userResponse = await fetch("/api/users/profile");
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        setDbUser(userData.user);
+      }
+
+      // Fetch projects
+      await fetchProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch user from database and projects on component mount
+  useEffect(() => {
+    if (isLoaded && clerkUser) {
+      fetchUserAndProjects();
+    }
+  }, [isLoaded, clerkUser, fetchUserAndProjects]);
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -199,12 +228,113 @@ export default function DashboardPage() {
     </Link>
   );
 
+  // Skeleton card component for loading state
+  const ProjectCardSkeleton = () => (
+    <Card className="hover:shadow-lg transition-shadow duration-200">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-3">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <div>
+              <Skeleton className="h-5 w-32 mb-2" />
+              <div className="flex items-center space-x-2">
+                <Skeleton className="h-4 w-16 rounded-full" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+          </div>
+          <Skeleton className="w-5 h-5" />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-3/4 mb-4" />
+
+        {/* Project stats skeleton */}
+        <div className="flex items-center justify-between text-sm mb-4">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1">
+              <Skeleton className="w-4 h-4" />
+              <Skeleton className="w-4 h-4" />
+            </div>
+            <div className="flex items-center space-x-1">
+              <Skeleton className="w-4 h-4" />
+              <Skeleton className="w-4 h-4" />
+            </div>
+            <div className="flex items-center space-x-1">
+              <Skeleton className="w-4 h-4" />
+              <Skeleton className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Skeleton className="w-4 h-4" />
+            <Skeleton className="w-16 h-4" />
+          </div>
+        </div>
+
+        {/* Actions skeleton */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="w-8 h-8" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (!isLoaded || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading projects...</p>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <h1 className="text-xl sm:text-2xl font-bold text-primary">
+                  Bona
+                </h1>
+                <span className="hidden sm:inline text-muted-foreground">
+                  Projects
+                </span>
+              </div>
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="w-8 h-8 rounded-full" />
+                <ThemeToggle />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+              <Skeleton className="h-8 w-48 mb-2" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+
+          {/* Projects grid with skeletons */}
+          <div className="space-y-8">
+            <div>
+              <Skeleton className="h-6 w-32 mb-4" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(3)].map((_, i) => (
+                  <ProjectCardSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Skeleton className="h-6 w-32 mb-4" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(2)].map((_, i) => (
+                  <ProjectCardSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -240,7 +370,11 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="hidden md:block text-right">
                 <p className="text-sm font-medium text-foreground">
-                  {clerkUser?.firstName || clerkUser?.username || "User"}
+                  {dbUser?.displayName?.split(" ")[0] ||
+                    clerkUser?.fullName?.split(" ")[0] ||
+                    clerkUser?.firstName ||
+                    clerkUser?.username ||
+                    "User"}
                 </p>
                 {clerkUser?.username && (
                   <p className="text-xs text-muted-foreground">
@@ -249,9 +383,11 @@ export default function DashboardPage() {
                 )}
               </div>
               {clerkUser?.imageUrl && (
-                <img
+                <Image
                   src={clerkUser.imageUrl}
                   alt="Profile"
+                  width={32}
+                  height={32}
                   className="w-8 h-8 rounded-full ring-2 ring-border"
                 />
               )}

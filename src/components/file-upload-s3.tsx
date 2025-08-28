@@ -207,6 +207,14 @@ export function FileUploadS3({
 
         xhr.addEventListener("error", (event) => {
           console.error("💥 [CLIENT-UPLOAD] S3 upload error event:", event);
+          console.error("💥 [CLIENT-UPLOAD] XMLHttpRequest details:", {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            readyState: xhr.readyState,
+            responseText: xhr.responseText,
+            responseURL: xhr.responseURL,
+            getAllResponseHeaders: xhr.getAllResponseHeaders(),
+          });
           setUploadingFiles((prev) =>
             prev.map((f) =>
               f.id === uploadingFile.id
@@ -230,8 +238,24 @@ export function FileUploadS3({
         });
 
         console.log("🔄 [CLIENT-UPLOAD] Sending file to S3...");
+        console.log("🔄 [CLIENT-UPLOAD] Upload URL details:", {
+          url: uploadUrl,
+          method: "PUT",
+          contentType: uploadingFile.file.type,
+          fileSize: uploadingFile.file.size,
+          fileName: uploadingFile.file.name,
+        });
+        
         xhr.open("PUT", uploadUrl);
         xhr.setRequestHeader("Content-Type", uploadingFile.file.type);
+        xhr.setRequestHeader("x-amz-server-side-encryption", "AES256");
+
+        console.log("🔄 [CLIENT-UPLOAD] XMLHttpRequest configured:", {
+          readyState: xhr.readyState,
+          timeout: xhr.timeout,
+          withCredentials: xhr.withCredentials,
+        });
+        
         xhr.send(uploadingFile.file);
       } catch (error) {
         console.error("💥 [CLIENT-UPLOAD] Upload error:", error);

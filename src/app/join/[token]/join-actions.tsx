@@ -28,8 +28,13 @@ export function JoinActions({ token }: JoinActionsProps) {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success("Successfully joined the project!");
-        
+        // Check if user was already a member or newly joined
+        if (data.isExistingMember) {
+          toast.success("You're already a member! Redirecting to project...");
+        } else {
+          toast.success("Successfully joined the project!");
+        }
+
         // Redirect to the project dashboard
         router.push(`/dashboard/projects/${data.member.project.id}`);
       } else {

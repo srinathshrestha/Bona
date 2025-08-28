@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, User, Save } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 // User interface for profile data
 interface UserProfile {
@@ -66,15 +68,14 @@ export default function ProfilePage() {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
-        // Show success message (you can implement toast notifications later)
-        alert("Profile updated successfully!");
+        toast.success("Profile updated successfully!");
       } else {
         const error = await response.json();
-        alert(error.error || "Failed to update profile");
+        toast.error(error.error || "Failed to update profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile");
+      toast.error("Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -89,10 +90,48 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading profile...</p>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="border-b border-border bg-card">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <Skeleton className="h-8 w-8" />
+                <Skeleton className="h-6 w-32" />
+              </div>
+              <Skeleton className="h-8 w-20" />
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <Skeleton className="w-16 h-16 rounded-full" />
+                <div>
+                  <Skeleton className="h-6 w-48 mb-2" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Skeleton className="h-4 w-16 mb-2" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div>
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div>
+                <Skeleton className="h-4 w-12 mb-2" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+              <Skeleton className="h-10 w-32" />
+            </CardContent>
+          </Card>
         </div>
       </div>
     );

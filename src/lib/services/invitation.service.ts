@@ -86,17 +86,46 @@ export class InvitationService {
 
     const inviteLink = await this.validateInvitationToken(token);
 
+    // Check if user is already a member
+    const existingMember = await ProjectMember.findOne({
+      projectId: inviteLink.projectId,
+      userId,
+    })
+      .populate("userId")
+      .populate("projectId");
+
+    if (existingMember) {
+      // User is already a member, return their existing membership data
+      return {
+        id: existingMember._id.toString(),
+        role: existingMember.role,
+        joinedAt: existingMember.createdAt,
+        isExistingMember: true,
+        user: {
+          id: existingMember.userId._id.toString(),
+          displayName: existingMember.userId.displayName,
+          username: existingMember.userId.username,
+          avatar: existingMember.userId.avatar,
+        },
+        project: {
+          id: existingMember.projectId._id.toString(),
+          name: existingMember.projectId.name,
+          description: existingMember.projectId.description,
+        },
+      };
+    }
+
     const session = await mongoose.startSession();
 
     try {
-      await session.withTransaction(async () => {
+      const result = await session.withTransaction(async () => {
         // Add as member
         const member = new ProjectMember({
           projectId: inviteLink.projectId,
           userId,
           role: "MEMBER",
         });
-        await member.save({ session });
+        const savedMember = await member.save({ session });
 
         // Log the join
         const joinLog = new MemberJoinLog({
@@ -112,8 +141,32 @@ export class InvitationService {
         inviteLink.currentUses += 1;
         await inviteLink.save({ session });
 
-        return member;
+        return savedMember;
       });
+
+      // Get the member with user and project populated for the response
+      const memberWithUser = await ProjectMember.findById(result._id)
+        .populate("userId")
+        .populate("projectId")
+        .exec();
+
+      return {
+        id: memberWithUser._id.toString(),
+        role: memberWithUser.role,
+        joinedAt: memberWithUser.createdAt,
+        isExistingMember: false,
+        user: {
+          id: memberWithUser.userId._id.toString(),
+          displayName: memberWithUser.userId.displayName,
+          username: memberWithUser.userId.username,
+          avatar: memberWithUser.userId.avatar,
+        },
+        project: {
+          id: memberWithUser.projectId._id.toString(),
+          name: memberWithUser.projectId.name,
+          description: memberWithUser.projectId.description,
+        },
+      };
     } finally {
       await session.endSession();
     }

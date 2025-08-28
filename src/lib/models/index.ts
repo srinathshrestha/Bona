@@ -8,6 +8,7 @@ export * from "./file.model";
 export * from "./message.model";
 export * from "./invitation.model";
 export * from "./audit.model";
+export * from "./testimonial.model";
 
 // Export enums and types
 export * from "./types";

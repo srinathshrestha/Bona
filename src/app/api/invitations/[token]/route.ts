@@ -116,9 +116,13 @@ export async function POST(
       userAgent,
     });
 
+    // Return different status codes for existing vs new members
+    const statusCode = member.isExistingMember ? 200 : 201;
+
     return NextResponse.json(
       {
         success: true,
+        isExistingMember: member.isExistingMember,
         member: {
           id: member.id,
           role: member.role,
@@ -136,7 +140,7 @@ export async function POST(
           },
         },
       },
-      { status: 201 }
+      { status: statusCode }
     );
   } catch (error) {
     console.error("Error accepting invitation:", error);

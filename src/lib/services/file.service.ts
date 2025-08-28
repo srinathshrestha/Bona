@@ -51,7 +51,7 @@ export class FileService {
 
     const fileData = {
       ...data,
-      uploadedById: user._id,
+      uploadedById: user._id.toString(),
     };
 
     console.log("📋 [FILE-SERVICE] Validating file data...");

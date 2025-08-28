@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +24,12 @@ import {
   Music,
   Archive,
   Loader2,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { FileUploadS3 } from "./file-upload-s3";
+import { FileViewer } from "./file-viewer";
 
 interface FileData {
   _id: string;
@@ -70,6 +73,10 @@ export function ProjectFileManager({
   const [loading, setLoading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+
+  // File viewer state
+  const [viewingFile, setViewingFile] = useState<FileData | null>(null);
+  const [showFileViewer, setShowFileViewer] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -130,6 +137,22 @@ export function ProjectFileManager({
       console.error("Error downloading file:", error);
       toast.error("Failed to download file");
     }
+  };
+
+  // Handle file viewing
+  const handleViewFile = (file: FileData) => {
+    if (!file.permissions.canView) {
+      toast.error("You don't have permission to view this file");
+      return;
+    }
+    setViewingFile(file);
+    setShowFileViewer(true);
+  };
+
+  // Close file viewer
+  const handleCloseFileViewer = () => {
+    setShowFileViewer(false);
+    setViewingFile(null);
   };
 
   const handleDelete = async (file: FileData) => {
@@ -309,9 +332,27 @@ export function ProjectFileManager({
             </CardHeader>
             <CardContent>
               {loading && files.length === 0 ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  Loading files...
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Skeleton className="h-8 w-8" />
+                        <div className="flex-1">
+                          <Skeleton className="h-4 w-32 mb-1" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Skeleton className="h-8 w-16" />
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-8" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : files.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -364,6 +405,16 @@ export function ProjectFileManager({
 
                         {/* Action buttons */}
                         <div className="flex items-center gap-1">
+                          {file.permissions.canView && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewFile(file)}
+                              title="View file"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                           {file.permissions.canDownload && (
                             <Button
                               variant="ghost"
@@ -406,6 +457,13 @@ export function ProjectFileManager({
           </Card>
         </div>
       </DialogContent>
+
+      {/* File Viewer */}
+      <FileViewer
+        file={viewingFile}
+        isOpen={showFileViewer}
+        onClose={handleCloseFileViewer}
+      />
     </Dialog>
   );
 }

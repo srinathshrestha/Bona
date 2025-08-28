@@ -6,8 +6,7 @@ export * from "./project.service";
 export * from "./file.service";
 export * from "./message.service";
 export * from "./invitation.service";
-export * from "./permission.service";
 export * from "./audit.service";
-
-// Export utility services
+export * from "./permission.service";
+export * from "./testimonial.service";
 export * from "./database.utils";

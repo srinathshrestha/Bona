@@ -96,37 +96,61 @@ export async function GET() {
       return NextResponse.json({ projects: [] });
     }
 
-    // Format the response
-    const ownedProjects = (userProjects.ownedProjects || []).map((project) => ({
-      id: project.id || project._id,
-      name: project.name,
-      description: project.description,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      role: "OWNER",
-      memberCount: 0, // We'll need to get this count separately
-      fileCount: 0, // We'll need to get this count separately
-      messageCount: 0, // We'll need to get this count separately
-    }));
+    // Get counts for each project
+    const getProjectWithCounts = async (
+      project: Record<string, unknown>,
+      role: string,
+      owner?: Record<string, unknown>
+    ) => {
+      try {
+        const stats = await ProjectService.getProjectStats(
+          (project.id as string) || (project._id as string)
+        );
+        return {
+          id: project.id || project._id,
+          name: project.name,
+          description: project.description,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+          role,
+          memberCount: stats.memberCount,
+          fileCount: stats.fileCount,
+          messageCount: stats.messageCount,
+          ...(owner && { owner }),
+        };
+      } catch (error) {
+        console.error(`Error getting stats for project ${project.id}:`, error);
+        return {
+          id: project.id || project._id,
+          name: project.name,
+          description: project.description,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+          role,
+          memberCount: 0,
+          fileCount: 0,
+          messageCount: 0,
+          ...(owner && { owner }),
+        };
+      }
+    };
 
-    const memberProjects = (userProjects.memberProjects || []).map(
-      (project) => ({
-        id: project.id || project._id,
-        name: project.name,
-        description: project.description,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
-        role: project.membershipRole,
-        memberCount: 0, // We'll need to get this count separately
-        fileCount: 0, // We'll need to get this count separately
-        messageCount: 0, // We'll need to get this count separately
-        owner: {
+    // Format the response with actual counts
+    const ownedProjects = await Promise.all(
+      (userProjects.ownedProjects || []).map((project) =>
+        getProjectWithCounts(project.toObject(), "OWNER")
+      )
+    );
+
+    const memberProjects = await Promise.all(
+      (userProjects.memberProjects || []).map((project) =>
+        getProjectWithCounts(project, project.membershipRole, {
           id: project.ownerId,
           displayName: project.owner?.displayName || "Unknown",
           username: project.owner?.username || "unknown",
           avatar: project.owner?.avatar || "",
-        },
-      })
+        })
+      )
     );
 
     return NextResponse.json({
