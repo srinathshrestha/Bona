@@ -158,46 +158,93 @@ export function ProjectInviteDialog({
     }
   };
 
-  // Copy invitation link to clipboard with fallback
+  // Copy invitation link to clipboard with enhanced fallback
   const copyToClipboard = async () => {
-    if (!inviteLink) return;
+    if (!inviteLink?.url) {
+      toast.error("No invitation link to copy");
+      return;
+    }
 
     try {
-      // Try modern clipboard API first
+      // Try modern clipboard API first (works in HTTPS and localhost)
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(inviteLink.url);
         setCopied(true);
-        toast.success("Invitation link copied to clipboard!");
+        toast.success("✅ Invitation link copied to clipboard!");
+        console.log("📋 Copied to clipboard via modern API:", inviteLink.url);
       } else {
-        // Fallback for unsupported browsers or insecure contexts
-        const textArea = document.createElement("textarea");
-        textArea.value = inviteLink.url;
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-
+        // Enhanced fallback for HTTP, older browsers, or mobile
+        console.log("📋 Using fallback copy method");
+        
+        // Create a temporary input element (more reliable than textarea on mobile)
+        const tempInput = document.createElement("input");
+        tempInput.value = inviteLink.url;
+        tempInput.style.position = "fixed";
+        tempInput.style.top = "0";
+        tempInput.style.left = "0";
+        tempInput.style.width = "2em";
+        tempInput.style.height = "2em";
+        tempInput.style.padding = "0";
+        tempInput.style.border = "none";
+        tempInput.style.outline = "none";
+        tempInput.style.boxShadow = "none";
+        tempInput.style.background = "transparent";
+        tempInput.style.opacity = "0";
+        tempInput.style.pointerEvents = "none";
+        tempInput.style.zIndex = "-1";
+        
+        document.body.appendChild(tempInput);
+        
         try {
+          // Focus and select the text
+          tempInput.focus();
+          tempInput.select();
+          tempInput.setSelectionRange(0, 99999); // For mobile devices
+          
+          // Try to copy using execCommand
           const successful = document.execCommand("copy");
+          
           if (successful) {
             setCopied(true);
-            toast.success("Invitation link copied to clipboard!");
+            toast.success("✅ Invitation link copied to clipboard!");
+            console.log("📋 Copied to clipboard via execCommand:", inviteLink.url);
           } else {
-            throw new Error("Copy command failed");
+            // If execCommand fails, try to select the input field for manual copy
+            tempInput.style.opacity = "1";
+            tempInput.style.pointerEvents = "auto";
+            tempInput.style.position = "relative";
+            tempInput.style.width = "100%";
+            tempInput.style.zIndex = "1000";
+            
+            toast.info("Please manually copy the selected link");
+            throw new Error("execCommand copy failed");
           }
         } finally {
-          document.body.removeChild(textArea);
+          // Clean up the temporary element after a short delay
+          setTimeout(() => {
+            if (document.body.contains(tempInput)) {
+              document.body.removeChild(tempInput);
+            }
+          }, 100);
         }
       }
 
-      // Reset copied state after 2 seconds
-      setTimeout(() => setCopied(false), 2000);
+      // Reset copied state after 3 seconds
+      setTimeout(() => setCopied(false), 3000);
+      
     } catch (error) {
-      console.error("Error copying to clipboard:", error);
-      toast.error(
-        "Copy to clipboard is not supported in this browser. Please manually copy the link."
-      );
+      console.error("❌ Error copying to clipboard:", error);
+      
+      // Final fallback: show the URL for manual copying
+      toast.error("Copy failed. Please manually copy the link from the input field above.");
+      
+      // Try to select the input field text for manual copying
+      const inputElement = document.getElementById("invite-url") as HTMLInputElement;
+      if (inputElement) {
+        inputElement.focus();
+        inputElement.select();
+        inputElement.setSelectionRange(0, 99999);
+      }
     }
   };
 
@@ -291,12 +338,19 @@ export function ProjectInviteDialog({
                         variant="outline"
                         size="sm"
                         onClick={copyToClipboard}
-                        className="shrink-0"
+                        className="shrink-0 min-w-[80px]"
+                        disabled={!inviteLink?.url}
                       >
                         {copied ? (
-                          <CheckCircle className="w-4 h-4" />
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-1 text-green-600" />
+                            <span className="text-xs">Copied!</span>
+                          </>
                         ) : (
-                          <Copy className="w-4 h-4" />
+                          <>
+                            <Copy className="w-4 h-4 mr-1" />
+                            <span className="text-xs">Copy</span>
+                          </>
                         )}
                       </Button>
                     </div>
@@ -304,6 +358,7 @@ export function ProjectInviteDialog({
 
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p>• Share this link with team members to invite them</p>
+                    <p>• Click &quot;Copy&quot; button or manually select and copy the link above</p>
                     <p>
                       • Link expires:{" "}
                       {inviteLink.expiresAt

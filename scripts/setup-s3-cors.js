@@ -30,42 +30,30 @@ const s3Client = new S3Client({
     },
 });
 
-// Recommended CORS configuration for file uploads
+// More permissive CORS configuration for file uploads from any origin
 const corsRules = [
     {
         AllowedHeaders: [
-            "*",
-            "Authorization",
-            "Content-Type",
-            "Content-Length",
-            "Content-MD5",
-            "x-amz-content-sha256",
-            "x-amz-date",
-            "x-amz-security-token",
+            "*"
         ],
         AllowedMethods: [
             "GET",
             "POST",
             "PUT",
             "DELETE",
-            "HEAD"
+            "HEAD",
+            "OPTIONS"
         ],
         AllowedOrigins: [
-            "http://localhost:3000",
-            "https://localhost:3000",
-            "http://localhost:3001",
-            "https://localhost:3001",
-            "http://127.0.0.1:3000",
-            "https://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "https://127.0.0.1:3001",
-            ...(APP_URL ? [APP_URL] : []),
+            "*"
         ],
         ExposeHeaders: [
             "ETag",
-            "x-amz-version-id"
+            "x-amz-version-id",
+            "x-amz-request-id",
+            "x-amz-id-2"
         ],
-        MaxAgeSeconds: 3000,
+        MaxAgeSeconds: 86400, // 24 hours
     },
 ];
 

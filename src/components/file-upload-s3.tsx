@@ -63,8 +63,28 @@ export function FileUploadS3({
         mode: 'cors',
       });
 
+      console.log("🌐 [CLIENT-UPLOAD] Fetch response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+
       if (!response.ok) {
-        throw new Error(`Fetch upload failed with status ${response.status}`);
+        const responseText = await response.text().catch(() => 'Unable to read response');
+        console.error("💥 [CLIENT-UPLOAD] Fetch upload failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          responseText,
+          url: uploadUrl,
+        });
+        
+        let errorMessage = `Fetch upload failed with status ${response.status}`;
+        if (response.status === 0 || response.status === 403) {
+          errorMessage += " - Likely CORS issue";
+        }
+        
+        throw new Error(errorMessage);
       }
 
       console.log("✅ [CLIENT-UPLOAD] Fetch API upload successful");
@@ -106,6 +126,13 @@ export function FileUploadS3({
       
     } catch (error) {
       console.error("💥 [CLIENT-UPLOAD] Fetch API upload failed:", error);
+      console.error("💥 [CLIENT-UPLOAD] Fetch error details:", {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack',
+        name: error instanceof Error ? error.name : 'Unknown',
+        userAgent: navigator.userAgent,
+        origin: window.location.origin,
+      });
       throw error;
     }
   }, [projectId, onUploadComplete]);
@@ -305,19 +332,35 @@ export function FileUploadS3({
             eventType: event.type,
             eventTarget: event.target ? 'XMLHttpRequest' : 'unknown',
             timestamp: new Date().toISOString(),
+            // CORS specific debugging
+            origin: window.location.origin,
+            uploadURL: xhr.responseURL || 'unknown',
           };
           
           console.error("💥 [CLIENT-UPLOAD] XMLHttpRequest details:", errorDetails);
           
-          // Provide more specific error message
+          // Provide more specific error message based on status
           let errorMessage = "Upload failed";
+          let errorHint = "";
+          
           if (xhr.status === 0) {
-            errorMessage = "Network error - check your internet connection";
+            errorMessage = "Network error or CORS issue";
+            errorHint = "This usually indicates a CORS (Cross-Origin Resource Sharing) problem. Please check S3 bucket CORS configuration.";
+          } else if (xhr.status === 403) {
+            errorMessage = "Upload permission denied";
+            errorHint = "The upload URL may have expired or the file is not allowed.";
+          } else if (xhr.status === 404) {
+            errorMessage = "Upload endpoint not found";
+            errorHint = "The S3 bucket or upload URL is invalid.";
           } else if (xhr.status >= 400 && xhr.status < 500) {
-            errorMessage = "Upload permission error";
+            errorMessage = `Client error (${xhr.status})`;
+            errorHint = "Check file permissions and upload settings.";
           } else if (xhr.status >= 500) {
-            errorMessage = "Server error - please try again";
+            errorMessage = `Server error (${xhr.status})`;
+            errorHint = "S3 service is temporarily unavailable.";
           }
+          
+          console.error("💡 [CLIENT-UPLOAD] Error hint:", errorHint);
           
           setUploadingFiles((prev) =>
             prev.map((f) =>
@@ -330,7 +373,11 @@ export function FileUploadS3({
                 : f
             )
           );
-          toast.error(`${errorMessage}: ${uploadingFile.file.name}`);
+          
+          toast.error(`${errorMessage}: ${uploadingFile.file.name}`, {
+            description: errorHint,
+            duration: 8000,
+          });
         });
 
         xhr.addEventListener("abort", () => {
