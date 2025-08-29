@@ -167,6 +167,7 @@ export async function getDownloadPresignedUrl(
  */
 export async function getViewPresignedUrl(
   s3Key: string,
+  mimeType?: string,
   expiresIn: number = DEFAULT_EXPIRY
 ): Promise<string> {
   const command = new GetObjectCommand({
@@ -174,6 +175,8 @@ export async function getViewPresignedUrl(
     Key: s3Key,
     // Set content disposition for inline viewing
     ResponseContentDisposition: "inline",
+    // Set content type if provided (important for PDFs)
+    ...(mimeType && { ResponseContentType: mimeType }),
   });
 
   return await getSignedUrl(s3Client, command, { expiresIn });

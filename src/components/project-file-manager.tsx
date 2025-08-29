@@ -25,6 +25,9 @@ import {
   Archive,
   Loader2,
   Eye,
+  FileSpreadsheet,
+  Presentation,
+  File,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -33,7 +36,7 @@ import { FileViewer } from "./file-viewer";
 
 interface FileData {
   _id: string;
-  filename: string;
+  fileName: string;
   originalName: string;
   fileSize: number;
   mimeType: string;
@@ -41,6 +44,8 @@ interface FileData {
   uploadedById: string;
   createdAt: string;
   projectId: string;
+  s3Url?: string;
+  cloudinaryUrl?: string;
   permissions: {
     canView: boolean;
     canDownload: boolean;
@@ -192,17 +197,77 @@ export function ProjectFileManager({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return <ImageIcon className="h-5 w-5" />;
-    if (mimeType.startsWith("video/")) return <Video className="h-5 w-5" />;
-    if (mimeType.startsWith("audio/")) return <Music className="h-5 w-5" />;
+  const getFileIcon = (mimeType: string, fileName?: string) => {
+    const iconClass = "h-5 w-5";
+    
+    // Image files
+    if (mimeType.startsWith("image/")) {
+      return <ImageIcon className={iconClass} />;
+    }
+    
+    // Video files
+    if (mimeType.startsWith("video/")) {
+      return <Video className={iconClass} />;
+    }
+    
+    // Audio files
+    if (mimeType.startsWith("audio/")) {
+      return <Music className={iconClass} />;
+    }
+    
+    // PDF files
+    if (mimeType === "application/pdf" || fileName?.toLowerCase().endsWith('.pdf')) {
+      return <FileText className={`${iconClass} text-red-600`} />;
+    }
+    
+    // Excel files
+    if (
+      mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      mimeType === "application/vnd.ms-excel" ||
+      fileName?.toLowerCase().match(/\.(xlsx?|csv)$/)
+    ) {
+      return <FileSpreadsheet className={`${iconClass} text-green-600`} />;
+    }
+    
+    // PowerPoint files
+    if (
+      mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+      mimeType === "application/vnd.ms-powerpoint" ||
+      fileName?.toLowerCase().match(/\.(pptx?|pps|ppsx)$/)
+    ) {
+      return <Presentation className={`${iconClass} text-orange-600`} />;
+    }
+    
+    // Word documents
+    if (
+      mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimeType === "application/msword" ||
+      fileName?.toLowerCase().match(/\.(docx?|rtf)$/)
+    ) {
+      return <FileText className={`${iconClass} text-blue-600`} />;
+    }
+    
+    // Archive files
     if (
       mimeType.includes("zip") ||
       mimeType.includes("rar") ||
-      mimeType.includes("tar")
-    )
-      return <Archive className="h-5 w-5" />;
-    return <FileText className="h-5 w-5" />;
+      mimeType.includes("tar") ||
+      mimeType.includes("gzip") ||
+      fileName?.toLowerCase().match(/\.(zip|rar|tar|gz|7z)$/)
+    ) {
+      return <Archive className={iconClass} />;
+    }
+    
+    // Text files
+    if (
+      mimeType.startsWith("text/") ||
+      fileName?.toLowerCase().match(/\.(txt|md|json|xml|html|css|js|ts|jsx|tsx)$/)
+    ) {
+      return <FileText className={iconClass} />;
+    }
+    
+    // Default file icon
+    return <File className={iconClass} />;
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -230,16 +295,18 @@ export function ProjectFileManager({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Files className="h-5 w-5" />
-            Project Files
-            <Badge className={getRoleBadgeColor(userPermissions.userRole)}>
+      <DialogContent className="w-[95vw] max-w-4xl h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-3 sm:p-6">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-lg sm:text-xl">
+            <div className="flex items-center gap-2">
+              <Files className="h-5 w-5" />
+              <span>Project Files</span>
+            </div>
+            <Badge className={`${getRoleBadgeColor(userPermissions.userRole)} text-xs`}>
               {userPermissions.userRole}
             </Badge>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Manage and organize your project files. Your permissions are based
             on your role.
           </DialogDescription>
@@ -369,17 +436,23 @@ export function ProjectFileManager({
                   {files.map((file) => (
                     <div
                       key={file._id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
+                      {/* File info section */}
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        {getFileIcon(file.mimeType)}
+                        {getFileIcon(file.mimeType, file.originalName)}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
+                          <p className="font-medium truncate text-sm sm:text-base">
                             {file.originalName}
                           </p>
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
                             <span>{formatFileSize(file.fileSize)}</span>
-                            <span>
+                            <span className="hidden sm:inline">
+                              {formatDistanceToNow(new Date(file.createdAt), {
+                                addSuffix: true,
+                              })}
+                            </span>
+                            <span className="sm:hidden">
                               {formatDistanceToNow(new Date(file.createdAt), {
                                 addSuffix: true,
                               })}
@@ -388,9 +461,10 @@ export function ProjectFileManager({
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2">
-                        {/* Permission indicators */}
-                        <div className="flex items-center gap-1">
+                      {/* Mobile-friendly permissions and actions section */}
+                      <div className="flex items-center justify-between sm:justify-end gap-2">
+                        {/* Permission indicators - hide on mobile to save space */}
+                        <div className="hidden sm:flex items-center gap-1">
                           {file.permissions.canDownload && (
                             <Badge variant="secondary" className="text-xs">
                               Download
@@ -403,7 +477,7 @@ export function ProjectFileManager({
                           )}
                         </div>
 
-                        {/* Action buttons */}
+                        {/* Action buttons - responsive */}
                         <div className="flex items-center gap-1">
                           {file.permissions.canView && (
                             <Button
@@ -411,8 +485,9 @@ export function ProjectFileManager({
                               size="sm"
                               onClick={() => handleViewFile(file)}
                               title="View file"
+                              className="h-8 w-8 sm:h-9 sm:w-9"
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           )}
                           {file.permissions.canDownload && (
@@ -421,8 +496,9 @@ export function ProjectFileManager({
                               size="sm"
                               onClick={() => handleDownload(file)}
                               title="Download file"
+                              className="h-8 w-8 sm:h-9 sm:w-9"
                             >
-                              <Download className="h-4 w-4" />
+                              <Download className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           )}
                           {file.permissions.canDelete && (
@@ -431,19 +507,19 @@ export function ProjectFileManager({
                               size="sm"
                               onClick={() => handleDelete(file)}
                               disabled={deletingFileId === file._id}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                              className="h-8 w-8 sm:h-9 sm:w-9 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                               title="Delete file"
                             >
                               {deletingFileId === file._id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                               ) : (
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                               )}
                             </Button>
                           )}
                           {!file.permissions.canDownload &&
                             !file.permissions.canDelete && (
-                              <div className="text-xs text-gray-500 px-2">
+                              <div className="text-xs text-gray-500 px-2 hidden sm:block">
                                 View only
                               </div>
                             )}
