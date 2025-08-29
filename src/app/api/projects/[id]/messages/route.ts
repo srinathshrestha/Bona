@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { UserService, PermissionService } from "@/lib/database";
 import { MessageService } from "@/lib/services";
 import { z } from "zod";
+import { broadcastToProject } from "./sse/route";
 
 // Validation schema for message creation
 const messageCreateSchema = z.object({
@@ -168,6 +169,24 @@ export async function POST(
     };
 
     const message = await MessageService.createMessage(messageData);
+
+    // Broadcast the new message to all connected clients
+    broadcastToProject(projectId, {
+      type: 'new_message',
+      message: {
+        id: message._id,
+        content: message.content,
+        createdAt: message.createdAt,
+        user: {
+          id: user._id,
+          displayName: user.displayName,
+          email: user.email,
+        },
+        replyToId: message.replyToId,
+        attachments: message.attachments,
+      },
+      timestamp: new Date().toISOString(),
+    });
 
     return NextResponse.json({
       success: true,

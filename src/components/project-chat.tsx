@@ -94,6 +94,7 @@ export function ProjectChat({
   const [projectFiles, setProjectFiles] = useState<FileData[]>([]);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -139,15 +140,54 @@ export function ProjectChat({
     }
   }, [projectId]);
 
-  // Fetch messages when dialog opens
+  // Fetch messages when dialog opens and set up SSE connection
   useEffect(() => {
     if (open) {
       fetchMessages();
-      // Set up polling for new messages only (not files)
-      const interval = setInterval(fetchMessages, 5000); // Reduced frequency from 3s to 5s
-      return () => clearInterval(interval);
+      
+      // Set up Server-Sent Events for real-time updates
+      const sse = new EventSource(`/api/projects/${projectId}/messages/sse`);
+      setEventSource(sse);
+
+      sse.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'new_message') {
+            // Add new message to the list
+            setMessages(prevMessages => {
+              // Check if message already exists to avoid duplicates
+              const messageExists = prevMessages.some(msg => msg.id === data.message.id);
+              if (messageExists) return prevMessages;
+              
+              return [...prevMessages, data.message];
+            });
+          } else if (data.type === 'connected') {
+            console.log('✅ Chat SSE connected');
+          }
+        } catch (error) {
+          console.error('Failed to parse SSE message:', error);
+        }
+      };
+
+      sse.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        // Fallback to polling if SSE fails
+        setTimeout(() => {
+          if (sse.readyState === EventSource.CLOSED) {
+            console.log('SSE closed, attempting to reconnect...');
+            // The useEffect will handle reconnection when state changes
+          }
+        }, 5000);
+      };
+
+      // Cleanup function
+      return () => {
+        sse.close();
+        setEventSource(null);
+      };
     }
-  }, [open, fetchMessages]);
+  }, [open, projectId, fetchMessages]);
 
   // Fetch files only when dialog opens (files don't change as frequently)
   useEffect(() => {
