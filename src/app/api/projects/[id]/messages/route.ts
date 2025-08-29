@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { UserService, PermissionService } from "@/lib/database";
 import { MessageService } from "@/lib/services";
 import { z } from "zod";
-import { broadcastToProject } from "./sse/route";
+import { broadcastMessage } from "./sse/route";
 
 // Validation schema for message creation
 const messageCreateSchema = z.object({
@@ -171,7 +171,7 @@ export async function POST(
     const message = await MessageService.createMessage(messageData);
 
     // Broadcast the new message to all connected clients
-    broadcastToProject(projectId, {
+    broadcastMessage(projectId, {
       type: 'new_message',
       message: {
         id: message._id,
