@@ -281,16 +281,17 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
   return (
     <div className="w-full h-full min-h-[500px] flex flex-col">
       {/* PDF Viewer Controls */}
-      <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 border-b rounded-t-lg">
-        <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-red-600" />
-          <span className="font-medium text-sm">{fileName}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white dark:bg-gray-800 border-b rounded-t-lg gap-3 sm:gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText className="h-5 w-5 text-red-600 flex-shrink-0" />
+          <span className="font-medium text-sm truncate">{fileName}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 flex-wrap sm:gap-2">
           <Button
             onClick={() => setViewMode('iframe')}
             size="sm"
             variant={viewMode === 'iframe' ? 'default' : 'outline'}
+            className="text-xs sm:text-sm px-2 sm:px-3"
           >
             Direct
           </Button>
@@ -298,16 +299,27 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
             onClick={() => setViewMode('google')}
             size="sm"
             variant={viewMode === 'google' ? 'default' : 'outline'}
+            className="text-xs sm:text-sm px-2 sm:px-3"
           >
             Google
           </Button>
-          <Button onClick={openInNewTab} size="sm" variant="outline">
-            <ExternalLink className="h-4 w-4 mr-1" />
-            Open
+          <Button 
+            onClick={openInNewTab} 
+            size="sm" 
+            variant="outline"
+            className="text-xs sm:text-sm px-2 sm:px-3"
+          >
+            <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Open</span>
           </Button>
-          <Button onClick={downloadFile} size="sm" variant="outline">
-            <Download className="h-4 w-4 mr-1" />
-            Download
+          <Button 
+            onClick={downloadFile} 
+            size="sm" 
+            variant="outline"
+            className="text-xs sm:text-sm px-2 sm:px-3"
+          >
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Download</span>
           </Button>
         </div>
       </div>
@@ -347,18 +359,18 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
 
         {viewMode === 'download' && (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <FileText className="h-20 w-20 mx-auto mb-4 text-red-600" />
-              <h3 className="text-xl font-semibold mb-2">PDF Preview Unavailable</h3>
-              <p className="text-gray-500 mb-6">
+            <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+              <FileText className="h-12 w-12 sm:h-20 sm:w-20 mx-auto mb-4 text-red-600" />
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">PDF Preview Unavailable</h3>
+              <p className="text-gray-500 mb-6 text-sm sm:text-base">
                 Unable to preview this PDF file in the browser. You can download it or open it in a new tab.
               </p>
-              <div className="flex gap-3 justify-center">
-                <Button onClick={downloadFile} variant="default">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={downloadFile} variant="default" className="w-full sm:w-auto">
                   <Download className="mr-2 h-4 w-4" />
                   Download PDF
                 </Button>
-                <Button onClick={openInNewTab} variant="outline">
+                <Button onClick={openInNewTab} variant="outline" className="w-full sm:w-auto">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Open in New Tab
                 </Button>
@@ -535,45 +547,51 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl w-[95vw] h-[95vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 p-6 pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <DialogTitle className="text-lg font-semibold flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                {file.originalName}
+      <DialogContent className="max-w-7xl w-[98vw] sm:w-[95vw] h-[98vh] sm:h-[95vh] flex flex-col p-0 m-1 sm:m-4">
+        <DialogHeader className="flex-shrink-0 p-3 sm:p-6 pb-2 sm:pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                <Eye className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                <span className="truncate">{file.originalName}</span>
               </DialogTitle>
               <DialogDescription className="sr-only">
                 File viewer for {file.originalName}
               </DialogDescription>
-              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                <Badge variant="outline">{file.mimeType}</Badge>
-                <span>{formatFileSize(file.fileSize)}</span>
-                <span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">{file.mimeType}</Badge>
+                  <span>{formatFileSize(file.fileSize)}</span>
+                </div>
+                <span className="hidden sm:inline">
                   Uploaded {formatDistanceToNow(new Date(file.createdAt))} ago
+                </span>
+                <span className="sm:hidden">
+                  {formatDistanceToNow(new Date(file.createdAt))} ago
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {file.permissions.canDownload && (
                 <Button
                   onClick={handleDownload}
                   variant="outline"
                   size="sm"
                   disabled={!fileUrl}
+                  className="text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Download</span>
                 </Button>
               )}
-              <Button onClick={onClose} variant="ghost" size="sm">
+              <Button onClick={onClose} variant="ghost" size="sm" className="px-2">
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col min-h-0 px-6 pb-6">
+        <div className="flex-1 flex flex-col min-h-0 px-2 sm:px-6 pb-2 sm:pb-6">
           {isLoading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -761,19 +779,20 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
               {/* Excel Viewer */}
               {fileCategory === "excel" && (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <FileSpreadsheet className="h-20 w-20 mx-auto mb-4 text-green-600" />
-                    <h3 className="text-xl font-semibold mb-2">
+                  <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+                    <FileSpreadsheet className="h-12 w-12 sm:h-20 sm:w-20 mx-auto mb-4 text-green-600" />
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2 truncate">
                       {file.originalName}
                     </h3>
-                    <p className="text-gray-500 mb-6">
+                    <p className="text-gray-500 mb-6 text-sm sm:text-base">
                       Excel files can be viewed by downloading or opening in
                       Excel Online
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <div className="flex flex-col gap-3 justify-center">
                       <Button
                         onClick={() => window.open(fileUrl, "_blank")}
                         variant="outline"
+                        className="w-full"
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Download File
@@ -788,6 +807,7 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                           )
                         }
                         variant="default"
+                        className="w-full"
                       >
                         <ExternalLink className="mr-2 h-4 w-4" />
                         View in Excel Online
@@ -800,19 +820,20 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
               {/* PowerPoint Viewer */}
               {fileCategory === "powerpoint" && (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <FileImage className="h-20 w-20 mx-auto mb-4 text-orange-600" />
-                    <h3 className="text-xl font-semibold mb-2">
+                  <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+                    <FileImage className="h-12 w-12 sm:h-20 sm:w-20 mx-auto mb-4 text-orange-600" />
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2 truncate">
                       {file.originalName}
                     </h3>
-                    <p className="text-gray-500 mb-6">
+                    <p className="text-gray-500 mb-6 text-sm sm:text-base">
                       PowerPoint files can be viewed by downloading or opening
                       in PowerPoint Online
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <div className="flex flex-col gap-3 justify-center">
                       <Button
                         onClick={() => window.open(fileUrl, "_blank")}
                         variant="outline"
+                        className="w-full"
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Download File
@@ -827,6 +848,7 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                           )
                         }
                         variant="default"
+                        className="w-full"
                       >
                         <ExternalLink className="mr-2 h-4 w-4" />
                         View in PowerPoint Online
@@ -839,19 +861,20 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
               {/* Word Document Viewer */}
               {fileCategory === "word" && (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <FileText className="h-20 w-20 mx-auto mb-4 text-blue-600" />
-                    <h3 className="text-xl font-semibold mb-2">
+                  <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+                    <FileText className="h-12 w-12 sm:h-20 sm:w-20 mx-auto mb-4 text-blue-600" />
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2 truncate">
                       {file.originalName}
                     </h3>
-                    <p className="text-gray-500 mb-6">
+                    <p className="text-gray-500 mb-6 text-sm sm:text-base">
                       Word documents can be viewed by downloading or opening in
                       Word Online
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <div className="flex flex-col gap-3 justify-center">
                       <Button
                         onClick={() => window.open(fileUrl, "_blank")}
                         variant="outline"
+                        className="w-full"
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Download File
@@ -866,6 +889,7 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                           )
                         }
                         variant="default"
+                        className="w-full"
                       >
                         <ExternalLink className="mr-2 h-4 w-4" />
                         View in Word Online
@@ -896,16 +920,16 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                 "text",
               ].includes(fileCategory) && (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-semibold mb-2">
+                  <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+                    <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg sm:text-lg font-semibold mb-2">
                       Preview not available
                     </h3>
-                    <p className="text-gray-500 mb-4">
+                    <p className="text-gray-500 mb-4 text-sm sm:text-base">
                       This file type cannot be previewed in the browser.
                     </p>
                     {file.permissions.canDownload && (
-                      <Button onClick={handleDownload}>
+                      <Button onClick={handleDownload} className="w-full sm:w-auto">
                         <Download className="h-4 w-4 mr-2" />
                         Download to view
                       </Button>
