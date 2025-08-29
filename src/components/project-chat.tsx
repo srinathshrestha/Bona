@@ -459,7 +459,7 @@ export function ProjectChat({
                           <div className="mt-2 space-y-2">
                             {message.attachments.map((attachment, index) => (
                               <div
-                                key={index}
+                                key={`${message.id}-attachment-${index}-${attachment.filename}`}
                                 className="flex items-center space-x-2 p-2 bg-muted/20 rounded-lg border"
                               >
                                 <span className="text-lg">
