@@ -9,6 +9,55 @@ import { ProjectMember, IProjectMember } from "../models/projectMember.model";
 import { User, IUser } from "../models/user.model";
 import mongoose from "mongoose";
 
+// Define interfaces for service parameters
+export interface ProjectCreateData {
+  name: string;
+  description?: string;
+  settings?: Record<string, unknown>;
+}
+
+export interface ProjectUpdateData {
+  name?: string;
+  description?: string;
+  settings?: Record<string, unknown>;
+}
+
+export interface ProjectListOptions {
+  limit?: number;
+  offset?: number;
+  search?: string;
+}
+
+export interface ProjectStatsResult {
+  memberCount: number;
+  fileCount: number;
+  messageCount: number;
+  totalFileSize: number;
+  recentActivity: Array<Record<string, unknown>>;
+}
+
+export interface ProjectWithDetails extends IProject {
+  members: Array<{
+    id: string;
+    role: string;
+    joinedAt: Date;
+    updatedAt: Date;
+    user: {
+      id: string;
+      displayName: string | null;
+      username: string | null;
+      email: string;
+      avatar: string | null;
+    } | null;
+  }>;
+  files: Array<Record<string, unknown>>;
+  _count: {
+    members: number;
+    files: number;
+    messages: number;
+  };
+}
+
 /**
  * Project Service - Handles all project-related database operations
  */
@@ -22,11 +71,7 @@ export class ProjectService {
    */
   static async createProject(
     ownerId: string,
-    data: {
-      name: string;
-      description?: string;
-      settings?: any;
-    }
+    data: ProjectCreateData
   ): Promise<{ project: IProject; membership: IProjectMember }> {
     await this.init();
 
@@ -131,7 +176,7 @@ export class ProjectService {
           files: filesCount,
           messages: messagesCount,
         },
-      } as any;
+      } as unknown as ProjectWithDetails;
     } catch (error) {
       console.error("Error getting project:", error);
       throw error;
@@ -144,11 +189,7 @@ export class ProjectService {
   static async updateProject(
     projectId: string,
     userId: string,
-    data: {
-      name?: string;
-      description?: string;
-      settings?: any;
-    }
+    data: ProjectUpdateData
   ): Promise<IProject> {
     await this.init();
 
@@ -257,7 +298,11 @@ export class ProjectService {
    */
   static async getUserProjects(userId: string): Promise<{
     ownedProjects: IProject[];
-    memberProjects: any[];
+    memberProjects: Array<{
+      project: IProject;
+      role: string;
+      joinedAt: Date;
+    }>;
   }> {
     await this.init();
 
@@ -370,8 +415,7 @@ export class ProjectService {
    */
   static async searchProjects(
     searchTerm: string,
-    isPublic: boolean = false,
-    limit: number = 20
+    isPublic: boolean = false
   ): Promise<IProject[]> {
     await this.init();
 
@@ -386,13 +430,7 @@ export class ProjectService {
   /**
    * Get project statistics
    */
-  static async getProjectStats(projectId: string): Promise<{
-    memberCount: number;
-    fileCount: number;
-    messageCount: number;
-    totalFileSize: number;
-    recentActivity: any;
-  }> {
+  static async getProjectStats(projectId: string): Promise<ProjectStatsResult> {
     await this.init();
 
     try {
@@ -447,21 +485,23 @@ export class ProjectService {
 
     try {
       const members = await ProjectMember.find({ projectId })
-        .populate('userId')
+        .populate("userId")
         .sort({ joinedAt: 1 });
 
-      return members.map(member => ({
+      return members.map((member) => ({
         id: member.id,
         role: member.role,
         joinedAt: member.joinedAt,
         updatedAt: member.updatedAt,
-        user: member.userId ? {
-          id: (member.userId as unknown as IUser).id,
-          displayName: (member.userId as unknown as IUser).displayName,
-          username: (member.userId as unknown as IUser).username,
-          email: (member.userId as unknown as IUser).email,
-          avatar: (member.userId as unknown as IUser).avatar,
-        } : null,
+        user: member.userId
+          ? {
+              id: (member.userId as unknown as IUser).id,
+              displayName: (member.userId as unknown as IUser).displayName,
+              username: (member.userId as unknown as IUser).username,
+              email: (member.userId as unknown as IUser).email,
+              avatar: (member.userId as unknown as IUser).avatar,
+            }
+          : null,
       }));
     } catch (error) {
       console.error("Error getting project members:", error);

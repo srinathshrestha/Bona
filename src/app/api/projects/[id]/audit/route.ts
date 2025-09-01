@@ -5,7 +5,7 @@ import {
   UserService, 
   AuditService 
 } from "@/lib/database";
-import { ProjectRole } from "@/lib/database";
+import type { ProjectRole } from "@/lib/models/types";
 
 // GET /api/projects/[id]/audit - Get project audit trail
 export async function GET(

@@ -6,6 +6,39 @@ import {
   ProjectRoleSchema,
 } from "./types";
 
+// Define interfaces for query options
+export interface FileAccessQueryOptions {
+  accessType?: "VIEW" | "DOWNLOAD" | "UPLOAD" | "DELETE";
+  userId?: string;
+  projectId?: string;
+  limit?: number;
+}
+
+export interface RoleChangeQueryOptions {
+  userId?: string;
+  changedById?: string;
+  projectId?: string;
+  limit?: number;
+  sort?: Record<string, 1 | -1>;
+}
+
+// Define interfaces for stats return types
+export interface AccessStatResult {
+  _id: {
+    date: string;
+    accessType: string;
+  };
+  count: number;
+}
+
+export interface RoleChangeStatResult {
+  _id: {
+    oldRole: string;
+    newRole: string | null;
+  };
+  count: number;
+}
+
 // Zod validation schema for FileAccess
 export const FileAccessValidationSchema = z.object({
   fileId: ObjectIdSchema,
@@ -109,7 +142,7 @@ FileAccessSchema.methods.toJSON = function () {
 // Static methods for FileAccess
 FileAccessSchema.statics.findByFile = function (
   fileId: string,
-  options: any = {}
+  options: FileAccessQueryOptions = {}
 ) {
   const query = this.find({ fileId });
 
@@ -129,7 +162,7 @@ FileAccessSchema.statics.findByFile = function (
 
 FileAccessSchema.statics.findByUser = function (
   userId: string,
-  options: any = {}
+  options: FileAccessQueryOptions = {}
 ) {
   const query = this.find({ userId });
 
@@ -155,7 +188,7 @@ FileAccessSchema.statics.getAccessStats = function (
   fileId?: string,
   projectId?: string
 ) {
-  let matchStage: any = {};
+  const matchStage: Record<string, unknown> = {};
 
   if (fileId) {
     matchStage.fileId = new mongoose.Types.ObjectId(fileId);
@@ -326,7 +359,7 @@ RoleChangeLogSchema.methods.toJSON = function () {
 // Static methods for RoleChangeLog
 RoleChangeLogSchema.statics.findByProject = function (
   projectId: string,
-  options: any = {}
+  options: RoleChangeQueryOptions = {}
 ) {
   const query = this.find({ projectId });
 
@@ -341,13 +374,29 @@ RoleChangeLogSchema.statics.findByProject = function (
   return query
     .populate("userId", "clerkId username displayName avatar")
     .populate("changedById", "clerkId username displayName avatar")
-    .sort({ changedAt: -1 })
+    .sort(options.sort || { changedAt: -1 })
     .limit(options.limit || 50);
 };
 
 RoleChangeLogSchema.statics.findByUser = function (
   userId: string,
-  options: any = {}
+  options: RoleChangeQueryOptions = {}
+) {
+  const query = this.find({
+    $or: [{ userId }, { changedById: userId }],
+  });
+
+  return query
+    .populate("projectId", "name description")
+    .populate("userId", "clerkId username displayName avatar")
+    .populate("changedById", "clerkId username displayName avatar")
+    .sort(options.sort || { changedAt: -1 })
+    .limit(options.limit || 50);
+};
+
+RoleChangeLogSchema.statics.findByUser = function (
+  userId: string,
+  options: RoleChangeQueryOptions = {}
 ) {
   const query = this.find({ userId });
 
@@ -394,16 +443,16 @@ RoleChangeLogSchema.pre("save", function (next) {
 
 // Create and export models
 export interface IFileAccessModel extends Model<IFileAccess> {
-  findByFile(fileId: string, options?: any): Promise<IFileAccess[]>;
-  findByUser(userId: string, options?: any): Promise<IFileAccess[]>;
-  getAccessStats(fileId?: string, projectId?: string): Promise<any[]>;
-  getAccessActivityByDay(projectId: string, days?: number): Promise<any[]>;
+  findByFile(fileId: string, options?: FileAccessQueryOptions): Promise<IFileAccess[]>;
+  findByUser(userId: string, options?: FileAccessQueryOptions): Promise<IFileAccess[]>;
+  getAccessStats(fileId?: string, projectId?: string): Promise<AccessStatResult[]>;
+  getAccessActivityByDay(projectId: string, days?: number): Promise<AccessStatResult[]>;
 }
 
 export interface IRoleChangeLogModel extends Model<IRoleChangeLog> {
-  findByProject(projectId: string, options?: any): Promise<IRoleChangeLog[]>;
-  findByUser(userId: string, options?: any): Promise<IRoleChangeLog[]>;
-  getRoleChangeStats(projectId: string): Promise<any[]>;
+  findByProject(projectId: string, options?: RoleChangeQueryOptions): Promise<IRoleChangeLog[]>;
+  findByUser(userId: string, options?: RoleChangeQueryOptions): Promise<IRoleChangeLog[]>;
+  getRoleChangeStats(projectId: string): Promise<RoleChangeStatResult[]>;
 }
 
 export const FileAccess =
@@ -418,10 +467,10 @@ export const RoleChangeLog =
   );
 
 // Export validation functions
-export const validateFileAccess = (data: any) => {
+export const validateFileAccess = (data: unknown) => {
   return FileAccessValidationSchema.parse(data);
 };
 
-export const validateRoleChangeLog = (data: any) => {
+export const validateRoleChangeLog = (data: unknown) => {
   return RoleChangeLogValidationSchema.parse(data);
 };

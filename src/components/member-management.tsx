@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -103,14 +103,7 @@ export function MemberManagement({
   const [newRole, setNewRole] = useState<ProjectRole>("MEMBER");
   const [reason, setReason] = useState("");
 
-  // Load admission status if user is owner
-  useEffect(() => {
-    if (permissions.permissions.canInvite) {
-      loadAdmissionStatus();
-    }
-  }, [permissions.permissions.canInvite]);
-
-  const loadAdmissionStatus = async () => {
+  const loadAdmissionStatus = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/projects/${projectId}/admission-control`
@@ -122,7 +115,14 @@ export function MemberManagement({
     } catch (error) {
       console.error("Error loading admission status:", error);
     }
-  };
+  }, [projectId]);
+
+  // Load admission status if user is owner
+  useEffect(() => {
+    if (permissions.permissions.canInvite) {
+      loadAdmissionStatus();
+    }
+  }, [permissions.permissions.canInvite, loadAdmissionStatus]);
 
   const getRoleIcon = (role: ProjectRole) => {
     switch (role) {
