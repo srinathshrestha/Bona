@@ -27,7 +27,7 @@ export const RoleChangeLogValidationSchema = z.object({
   projectId: ObjectIdSchema,
   changedById: ObjectIdSchema,
   oldRole: ProjectRoleSchema,
-  newRole: ProjectRoleSchema,
+  newRole: ProjectRoleSchema.nullable(), // Allow null for member removal
   reason: z.string().max(500).optional(),
 });
 
@@ -48,7 +48,7 @@ export interface IRoleChangeLog extends Document {
   projectId: mongoose.Types.ObjectId;
   changedById: mongoose.Types.ObjectId;
   oldRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
-  newRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+  newRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER" | null; // Allow null for member removal
   reason?: string;
   changedAt: Date;
 }
@@ -291,8 +291,9 @@ const RoleChangeLogSchema = new Schema<IRoleChangeLog>(
     },
     newRole: {
       type: String,
-      enum: ["OWNER", "ADMIN", "MEMBER", "VIEWER"],
-      required: true,
+      enum: ["OWNER", "ADMIN", "MEMBER", "VIEWER", null],
+      required: false, // Allow null for member removal
+      default: null,
     },
     reason: {
       type: String,
@@ -379,6 +380,11 @@ RoleChangeLogSchema.statics.getRoleChangeStats = function (projectId: string) {
 
 // Pre-save middleware for RoleChangeLog
 RoleChangeLogSchema.pre("save", function (next) {
+  // Allow null newRole (for member removal)
+  if (this.newRole === null) {
+    return next();
+  }
+  
   // Validate that old role and new role are different
   if (this.oldRole === this.newRole) {
     return next(new Error("Old role and new role cannot be the same"));

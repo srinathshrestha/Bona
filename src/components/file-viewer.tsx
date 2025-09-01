@@ -655,23 +655,39 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                       Reset
                     </Button>
                   </div>
-                  <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
-                    <div className="w-full h-full min-h-[400px] flex items-center justify-center p-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        ref={imageRef}
-                        src={fileUrl}
-                        alt={file.originalName}
-                        className="transition-transform duration-200 ease-in-out"
+                  <div className="flex-1 relative overflow-hidden bg-gray-50 dark:bg-gray-900">
+                    <div 
+                      className="absolute inset-0 overflow-auto"
+                      style={{
+                        scrollbarWidth: "thin",
+                        scrollbarColor: "rgba(0,0,0,0.3) transparent"
+                      }}
+                    >
+                      <div 
+                        className="flex items-center justify-center p-4"
                         style={{
-                          transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                          transformOrigin: "center center",
-                          maxWidth: zoom <= 1 ? "100%" : "none",
-                          maxHeight: zoom <= 1 ? "100%" : "none",
-                          objectFit: "contain",
+                          minWidth: "100%",
+                          minHeight: "100%",
+                          width: zoom > 1 ? `${zoom * 100}%` : "100%",
+                          height: zoom > 1 ? `${zoom * 100}%` : "100%",
                         }}
-                        draggable={false}
-                      />
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          ref={imageRef}
+                          src={fileUrl}
+                          alt={file.originalName}
+                          className="transition-transform duration-200 ease-in-out block"
+                          style={{
+                            transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                            transformOrigin: "center center",
+                            maxWidth: zoom <= 1 ? "100%" : "none",
+                            maxHeight: zoom <= 1 ? "100%" : "none",
+                            objectFit: "contain",
+                          }}
+                          draggable={false}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

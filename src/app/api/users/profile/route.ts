@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { UserService } from "@/lib/database";
 import { z } from "zod";
@@ -48,7 +48,7 @@ export async function PUT(request: NextRequest) {
     // Update user profile
     const updatedUser = await UserService.updateUserProfile(userId, {
       ...validatedData,
-      settings: validatedData.settings as Prisma.InputJsonValue, // Cast to match Prisma InputJsonValue
+      settings: validatedData.settings, // Removed Prisma cast since we're using MongoDB
     });
 
     return NextResponse.json({
@@ -91,10 +91,20 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await UserService.getUserByClerkId(userId);
+    let user = await UserService.getUserByClerkId(userId);
 
+    // If user doesn't exist in database, sync them from Clerk
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      console.log(`👤 Auto-syncing new user from Clerk: ${userId}`);
+      const clerkUser = await currentUser();
+      
+      if (!clerkUser) {
+        return NextResponse.json({ error: "Unable to fetch user from Clerk" }, { status: 500 });
+      }
+
+      // Sync user from Clerk to database
+      user = await UserService.syncUserFromClerk(clerkUser);
+      console.log(`✅ Successfully synced user: ${user.email}`);
     }
 
     return NextResponse.json({

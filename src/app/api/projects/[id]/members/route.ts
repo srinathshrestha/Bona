@@ -5,7 +5,8 @@ import {
   UserService, 
   ProjectService
 } from "@/lib/database";
-import { ProjectRole } from "@/lib/database";
+import { ProjectRole } from "@/lib/models/types";
+import { IUser } from "@/lib/models/user.model";
 
 // GET /api/projects/[id]/members - Get project members
 export async function GET(
@@ -30,7 +31,7 @@ export async function GET(
     const hasAccess = await PermissionService.checkPermission(
       projectId,
       user.id,
-      ProjectRole.VIEWER
+      "VIEWER"
     );
 
     if (!hasAccess) {
@@ -40,7 +41,7 @@ export async function GET(
       );
     }
 
-    // Get project with members
+    // Get project and verify access
     const project = await ProjectService.getProject(projectId, user.id);
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -49,20 +50,8 @@ export async function GET(
     // Get user's role for response context
     const userRole = await PermissionService.getUserRole(projectId, user.id);
 
-    // Return members with appropriate detail level based on user role
-    const members = project.members.map(member => ({
-      id: member.id,
-      role: member.role,
-      joinedAt: member.joinedAt,
-      updatedAt: member.updatedAt,
-      user: {
-        id: member.user.id,
-        displayName: member.user.displayName,
-        username: member.user.username,
-        email: member.user.email,
-        avatar: member.user.avatar,
-      },
-    }));
+    // Get members with populated user data
+    const members = await ProjectService.getProjectMembers(projectId);
 
     return NextResponse.json({
       members,
@@ -116,7 +105,8 @@ export async function PATCH(
     }
 
     // Validate role value
-    if (!Object.values(ProjectRole).includes(newRole)) {
+    const validRoles: ProjectRole[] = ["OWNER", "ADMIN", "MEMBER", "VIEWER"];
+    if (!validRoles.includes(newRole as ProjectRole)) {
       return NextResponse.json(
         { error: "Invalid role specified" },
         { status: 400 }
@@ -138,13 +128,13 @@ export async function PATCH(
         id: updatedMember.id,
         role: updatedMember.role,
         updatedAt: updatedMember.updatedAt,
-        user: {
-          id: updatedMember.user.id,
-          displayName: updatedMember.user.displayName,
-          username: updatedMember.user.username,
-          email: updatedMember.user.email,
-          avatar: updatedMember.user.avatar,
-        },
+        user: updatedMember.userId ? {
+          id: (updatedMember.userId as unknown as IUser).id,
+          displayName: (updatedMember.userId as unknown as IUser).displayName,
+          username: (updatedMember.userId as unknown as IUser).username,
+          email: (updatedMember.userId as unknown as IUser).email,
+          avatar: (updatedMember.userId as unknown as IUser).avatar,
+        } : null,
       },
       message: `Role updated to ${newRole}`,
     });
@@ -214,12 +204,12 @@ export async function DELETE(
       removedMember: {
         id: removedMember.id,
         role: removedMember.role,
-        user: {
-          id: removedMember.user.id,
-          displayName: removedMember.user.displayName,
-          username: removedMember.user.username,
-          email: removedMember.user.email,
-        },
+        user: removedMember.userId ? {
+          id: (removedMember.userId as unknown as IUser).id,
+          displayName: (removedMember.userId as unknown as IUser).displayName,
+          username: (removedMember.userId as unknown as IUser).username,
+          email: (removedMember.userId as unknown as IUser).email,
+        } : null,
       },
       message: "Member removed successfully",
     });

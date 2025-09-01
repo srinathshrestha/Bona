@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { ProjectService, UserService } from "@/lib/database";
 import { z } from "zod";
@@ -22,9 +22,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the user from database to get their internal ID
-    const user = await UserService.getUserByClerkId(userId);
+    let user = await UserService.getUserByClerkId(userId);
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      console.log(`👤 Auto-syncing new user from Clerk: ${userId}`);
+      const clerkUser = await currentUser();
+      
+      if (!clerkUser) {
+        return NextResponse.json({ error: "Unable to fetch user from Clerk" }, { status: 500 });
+      }
+
+      // Sync user from Clerk to database
+      user = await UserService.syncUserFromClerk(clerkUser);
+      console.log(`✅ Successfully synced user: ${user.email}`);
     }
 
     const body = await request.json();
@@ -82,9 +91,18 @@ export async function GET() {
     }
 
     // Get the user from database to get their internal ID
-    const user = await UserService.getUserByClerkId(userId);
+    let user = await UserService.getUserByClerkId(userId);
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      console.log(`👤 Auto-syncing new user from Clerk: ${userId}`);
+      const clerkUser = await currentUser();
+      
+      if (!clerkUser) {
+        return NextResponse.json({ error: "Unable to fetch user from Clerk" }, { status: 500 });
+      }
+
+      // Sync user from Clerk to database
+      user = await UserService.syncUserFromClerk(clerkUser);
+      console.log(`✅ Successfully synced user: ${user.email}`);
     }
 
     // Get user's projects (both owned and member)

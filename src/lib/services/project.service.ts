@@ -6,7 +6,7 @@ import {
   IProject,
 } from "../models/project.model";
 import { ProjectMember, IProjectMember } from "../models/projectMember.model";
-import { User } from "../models/user.model";
+import { User, IUser } from "../models/user.model";
 import mongoose from "mongoose";
 
 /**
@@ -435,6 +435,36 @@ export class ProjectService {
       };
     } catch (error) {
       console.error("Error getting project stats:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get project members with user details
+   */
+  static async getProjectMembers(projectId: string) {
+    await this.init();
+
+    try {
+      const members = await ProjectMember.find({ projectId })
+        .populate('userId')
+        .sort({ joinedAt: 1 });
+
+      return members.map(member => ({
+        id: member.id,
+        role: member.role,
+        joinedAt: member.joinedAt,
+        updatedAt: member.updatedAt,
+        user: member.userId ? {
+          id: (member.userId as unknown as IUser).id,
+          displayName: (member.userId as unknown as IUser).displayName,
+          username: (member.userId as unknown as IUser).username,
+          email: (member.userId as unknown as IUser).email,
+          avatar: (member.userId as unknown as IUser).avatar,
+        } : null,
+      }));
+    } catch (error) {
+      console.error("Error getting project members:", error);
       throw error;
     }
   }
