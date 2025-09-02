@@ -1,21 +1,21 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 
 export default function SimpleLanding() {
-  const { data: session, status } = useSession();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
+    if (isLoaded && user) {
       router.push("/dashboard");
     }
-  }, [status, session, router]);
+  }, [isLoaded, user, router]);
 
-  if (status === "loading") {
+  if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
