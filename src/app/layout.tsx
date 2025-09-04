@@ -23,6 +23,14 @@ export const metadata: Metadata = {
     siteName: "Bona",
     images: [
       {
+        url:
+          (process.env.NEXT_PUBLIC_SITE_URL || "") +
+          "/og?title=Bona%20%E2%80%94%20Collaborative%20Media%20Asset%20Management&subtitle=Secure%20collaboration%20for%20teams",
+        width: 1200,
+        height: 630,
+        alt: "Bona preview",
+      },
+      {
         url: "/professional-entrepreneur.png",
         width: 1200,
         height: 630,
@@ -38,8 +46,9 @@ export const metadata: Metadata = {
     description:
       "Streamline media asset sharing and team collaboration for creative professionals.",
     images: [
-      process.env.NEXT_PUBLIC_TWITTER_IMAGE_URL ||
-        "/professional-entrepreneur.png",
+      (process.env.NEXT_PUBLIC_SITE_URL || "") +
+        "/og?title=Bona%20%E2%80%94%20Collaborative%20Media%20Asset%20Management&subtitle=Secure%20collaboration%20for%20teams",
+      "/professional-entrepreneur.png",
     ],
   },
 };
