@@ -144,7 +144,7 @@ export function ProjectChat({
   useEffect(() => {
     if (open) {
       fetchMessages();
-      
+
       // Set up Server-Sent Events for real-time updates
       const sse = new EventSource(`/api/projects/${projectId}/messages/sse`);
       setEventSource(sse);
@@ -152,30 +152,38 @@ export function ProjectChat({
       sse.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
-          if (data.type === 'new_message') {
+
+          if (data.type === "new_message" && data.message) {
             // Add new message to the list
-            setMessages(prevMessages => {
+            setMessages((prevMessages) => {
+              // Ensure the message has a valid ID
+              const messageWithId = {
+                ...data.message,
+                id: data.message.id || `sse-${Date.now()}-${Math.random()}`,
+              };
+
               // Check if message already exists to avoid duplicates
-              const messageExists = prevMessages.some(msg => msg.id === data.message.id);
+              const messageExists = prevMessages.some(
+                (msg) => msg.id === messageWithId.id
+              );
               if (messageExists) return prevMessages;
-              
-              return [...prevMessages, data.message];
+
+              return [...prevMessages, messageWithId];
             });
-          } else if (data.type === 'connected') {
-            console.log('✅ Chat SSE connected');
+          } else if (data.type === "connected") {
+            console.log("✅ Chat SSE connected");
           }
         } catch (error) {
-          console.error('Failed to parse SSE message:', error);
+          console.error("Failed to parse SSE message:", error);
         }
       };
 
       sse.onerror = (error) => {
-        console.error('SSE connection error:', error);
+        console.error("SSE connection error:", error);
         // Fallback to polling if SSE fails
         setTimeout(() => {
           if (sse.readyState === EventSource.CLOSED) {
-            console.log('SSE closed, attempting to reconnect...');
+            console.log("SSE closed, attempting to reconnect...");
             // The useEffect will handle reconnection when state changes
           }
         }, 5000);
@@ -411,8 +419,11 @@ export function ProjectChat({
               </p>
             </div>
           ) : (
-            messages.map((message) => (
-              <div key={message.id} className="space-y-2">
+            messages.map((message, index) => (
+              <div
+                key={message.id || `message-${index}-${message.createdAt}`}
+                className="space-y-2"
+              >
                 {/* Reply context */}
                 {message.replyTo && message.replyTo.user && (
                   <div className="ml-4 pl-4 border-l-2 border-muted bg-muted/20 rounded-r-lg p-2">

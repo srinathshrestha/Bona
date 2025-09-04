@@ -282,6 +282,7 @@ export default async function ProjectDetailPage({
                   </div>
                   <ProjectFileManager
                     projectId={id}
+                    userRole={userRole}
                     trigger={
                       <Button variant="outline" size="sm">
                         <FolderOpen className="w-4 h-4 mr-2" />
@@ -326,6 +327,7 @@ export default async function ProjectDetailPage({
                       <div className="text-center pt-2">
                         <ProjectFileManager
                           projectId={id}
+                          userRole={userRole}
                           trigger={
                             <Button variant="ghost" size="sm">
                               View all {(project as any).files.length} files
@@ -346,6 +348,7 @@ export default async function ProjectDetailPage({
                     </p>
                     <ProjectFileManager
                       projectId={id}
+                      userRole={userRole}
                       trigger={
                         <Button>
                           <Upload className="w-4 h-4 mr-2" />
@@ -370,67 +373,80 @@ export default async function ProjectDetailPage({
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <ProjectChat projectId={id} userRole={userRole} />
+            <div key="chat">
+              <ProjectChat projectId={id} userRole={userRole} />
+            </div>
 
-            <ProjectFileManager
-              projectId={id}
-              trigger={
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6 text-center">
-                    <FolderOpen className="w-8 h-8 text-primary mx-auto mb-2" />
-                    <p className="font-medium text-foreground">File Manager</p>
-                    <p className="text-sm text-muted-foreground">
-                      Manage project files
-                    </p>
-                  </CardContent>
-                </Card>
-              }
-            />
+            <div key="file-manager">
+              <ProjectFileManager
+                projectId={id}
+                userRole={userRole}
+                trigger={
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                      <FolderOpen className="w-8 h-8 text-primary mx-auto mb-2" />
+                      <p className="font-medium text-foreground">
+                        File Manager
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Manage project files
+                      </p>
+                    </CardContent>
+                  </Card>
+                }
+              />
+            </div>
 
-            <ProjectInviteDialog
-              projectId={id}
-              userRole={userRole}
-              trigger={
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6 text-center">
-                    <Users className="w-8 h-8 text-primary mx-auto mb-2" />
-                    <p className="font-medium text-foreground">
-                      Invite Members
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Add team members
-                    </p>
-                  </CardContent>
-                </Card>
-              }
-            />
+            <div key="invite-dialog">
+              <ProjectInviteDialog
+                projectId={id}
+                userRole={userRole}
+                trigger={
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                      <Users className="w-8 h-8 text-primary mx-auto mb-2" />
+                      <p className="font-medium text-foreground">
+                        Invite Members
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Add team members
+                      </p>
+                    </CardContent>
+                  </Card>
+                }
+              />
+            </div>
 
             {userRole === "OWNER" || userRole === "ADMIN" ? (
-              <Link href={`/dashboard/projects/${id}/settings`}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <div key="settings-link">
+                <Link href={`/dashboard/projects/${id}/settings`}>
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                      <Settings className="w-8 h-8 text-primary mx-auto mb-2" />
+                      <p className="font-medium text-foreground">
+                        Project Settings
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Configure project
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </div>
+            ) : (
+              <div key="settings-disabled">
+                <Card className="opacity-50 cursor-not-allowed">
                   <CardContent className="p-6 text-center">
-                    <Settings className="w-8 h-8 text-primary mx-auto mb-2" />
-                    <p className="font-medium text-foreground">
+                    <Settings className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="font-medium text-muted-foreground">
                       Project Settings
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Configure project
+                      Admin access required
                     </p>
                   </CardContent>
                 </Card>
-              </Link>
-            ) : (
-              <Card className="opacity-50 cursor-not-allowed">
-                <CardContent className="p-6 text-center">
-                  <Settings className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="font-medium text-muted-foreground">
-                    Project Settings
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Admin access required
-                  </p>
-                </CardContent>
-              </Card>
+              </div>
             )}
           </div>
         </div>

@@ -7,12 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get redirect URL from query params or default to onboarding
+  const redirectUrl = searchParams.get("redirect") || "/onboarding";
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -66,7 +70,7 @@ export default function SignUpPage() {
       });
 
       if (signInResult?.ok) {
-        router.push("/onboarding");
+        router.push(redirectUrl);
         router.refresh();
       } else {
         // If auto sign-in fails, redirect to sign-in page
@@ -85,7 +89,7 @@ export default function SignUpPage() {
     try {
       // Sign up with Google OAuth
       await signIn("google", {
-        callbackUrl: "/onboarding",
+        callbackUrl: redirectUrl,
       });
     } catch (error) {
       console.error("Google sign up error:", error);

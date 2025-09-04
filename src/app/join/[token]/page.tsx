@@ -211,15 +211,12 @@ function UnauthenticatedJoinFlow({ project }: { project: ProjectPreviewData }) {
               </div>
 
               <div className="space-y-3">
-                <SignUpButton
-                  mode="modal"
-                  forceRedirectUrl={`/join/${project.token}`}
-                >
+                <Link href={`/sign-up?redirect=/join/${project.token}`}>
                   <Button className="w-full" size="lg">
                     <User className="w-4 h-4 mr-2" />
                     Create Account & Join
                   </Button>
-                </SignUpButton>
+                </Link>
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -232,15 +229,12 @@ function UnauthenticatedJoinFlow({ project }: { project: ProjectPreviewData }) {
                   </div>
                 </div>
 
-                <SignInButton
-                  mode="modal"
-                  forceRedirectUrl={`/join/${project.token}`}
-                >
+                <Link href={`/sign-in?redirect=/join/${project.token}`}>
                   <Button variant="outline" className="w-full" size="lg">
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Sign In to Join
                   </Button>
-                </SignInButton>
+                </Link>
               </div>
 
               <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-4">
@@ -270,7 +264,7 @@ function UnauthenticatedJoinFlow({ project }: { project: ProjectPreviewData }) {
 // Main page component
 export default async function JoinPage({ params }: JoinPageProps) {
   const { token } = await params;
-  const { userId } = await auth();
+  const userId = await getCurrentUserId();
 
   try {
     // Validate the invitation token

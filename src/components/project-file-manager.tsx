@@ -61,19 +61,22 @@ interface UserPermissions {
 
 interface ProjectFileManagerProps {
   projectId: string;
+  userRole?: string;
   trigger?: React.ReactNode;
 }
 
 export function ProjectFileManager({
   projectId,
+  userRole,
   trigger,
 }: ProjectFileManagerProps) {
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<FileData[]>([]);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({
-    canUpload: false,
-    canViewAll: false,
-    userRole: "VIEWER",
+    canUpload:
+      userRole === "OWNER" || userRole === "ADMIN" || userRole === "MEMBER",
+    canViewAll: true,
+    userRole: userRole || "VIEWER",
   });
   const [loading, setLoading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
@@ -93,9 +96,12 @@ export function ProjectFileManager({
         setFiles(data.files || []);
         setUserPermissions(
           data.userPermissions || {
-            canUpload: false,
-            canViewAll: false,
-            userRole: "VIEWER",
+            canUpload:
+              userRole === "OWNER" ||
+              userRole === "ADMIN" ||
+              userRole === "MEMBER",
+            canViewAll: true,
+            userRole: userRole || "VIEWER",
           }
         );
       } else {
@@ -199,54 +205,60 @@ export function ProjectFileManager({
 
   const getFileIcon = (mimeType: string, fileName?: string) => {
     const iconClass = "h-5 w-5";
-    
+
     // Image files
     if (mimeType.startsWith("image/")) {
       return <ImageIcon className={iconClass} />;
     }
-    
+
     // Video files
     if (mimeType.startsWith("video/")) {
       return <Video className={iconClass} />;
     }
-    
+
     // Audio files
     if (mimeType.startsWith("audio/")) {
       return <Music className={iconClass} />;
     }
-    
+
     // PDF files
-    if (mimeType === "application/pdf" || fileName?.toLowerCase().endsWith('.pdf')) {
+    if (
+      mimeType === "application/pdf" ||
+      fileName?.toLowerCase().endsWith(".pdf")
+    ) {
       return <FileText className={`${iconClass} text-red-600`} />;
     }
-    
+
     // Excel files
     if (
-      mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      mimeType ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       mimeType === "application/vnd.ms-excel" ||
       fileName?.toLowerCase().match(/\.(xlsx?|csv)$/)
     ) {
       return <FileSpreadsheet className={`${iconClass} text-green-600`} />;
     }
-    
+
     // PowerPoint files
     if (
-      mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+      mimeType ===
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
       mimeType === "application/vnd.ms-powerpoint" ||
       fileName?.toLowerCase().match(/\.(pptx?|pps|ppsx)$/)
     ) {
       return <Presentation className={`${iconClass} text-orange-600`} />;
     }
-    
+
     // Word documents
     if (
-      mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       mimeType === "application/msword" ||
       fileName?.toLowerCase().match(/\.(docx?|rtf)$/)
     ) {
       return <FileText className={`${iconClass} text-blue-600`} />;
     }
-    
+
     // Archive files
     if (
       mimeType.includes("zip") ||
@@ -257,15 +269,17 @@ export function ProjectFileManager({
     ) {
       return <Archive className={iconClass} />;
     }
-    
+
     // Text files
     if (
       mimeType.startsWith("text/") ||
-      fileName?.toLowerCase().match(/\.(txt|md|json|xml|html|css|js|ts|jsx|tsx)$/)
+      fileName
+        ?.toLowerCase()
+        .match(/\.(txt|md|json|xml|html|css|js|ts|jsx|tsx)$/)
     ) {
       return <FileText className={iconClass} />;
     }
-    
+
     // Default file icon
     return <File className={iconClass} />;
   };
@@ -302,7 +316,11 @@ export function ProjectFileManager({
               <Files className="h-5 w-5" />
               <span>Project Files</span>
             </div>
-            <Badge className={`${getRoleBadgeColor(userPermissions.userRole)} text-xs`}>
+            <Badge
+              className={`${getRoleBadgeColor(
+                userPermissions.userRole
+              )} text-xs`}
+            >
               {userPermissions.userRole}
             </Badge>
           </DialogTitle>
@@ -331,6 +349,7 @@ export function ProjectFileManager({
               {showUpload && (
                 <FileUploadS3
                   projectId={projectId}
+                  userRole={userRole}
                   onUploadComplete={() => {
                     fetchFiles();
                     setShowUpload(false);
