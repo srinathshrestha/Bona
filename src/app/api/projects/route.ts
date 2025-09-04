@@ -1,5 +1,5 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { ProjectService, UserService } from "@/lib/database";
 import { z } from "zod";
 
@@ -15,25 +15,16 @@ const projectCreateSchema = z.object({
 // POST /api/projects - Create a new project
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get the user from database to get their internal ID
-    let user = await UserService.getUserByClerkId(userId);
+    // Get the user from database
+    const user = await UserService.getUserById(userId);
     if (!user) {
-      console.log(`👤 Auto-syncing new user from Clerk: ${userId}`);
-      const clerkUser = await currentUser();
-      
-      if (!clerkUser) {
-        return NextResponse.json({ error: "Unable to fetch user from Clerk" }, { status: 500 });
-      }
-
-      // Sync user from Clerk to database
-      user = await UserService.syncUserFromClerk(clerkUser);
-      console.log(`✅ Successfully synced user: ${user.email}`);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const body = await request.json();
@@ -57,7 +48,7 @@ export async function POST(request: NextRequest) {
         isPrivate: true, // Always private
         createdAt: result.project.createdAt,
         owner: {
-          id: user.id,
+          id: user._id.toString(),
           displayName: user.displayName,
           username: user.username,
           avatar: user.avatar,
@@ -84,104 +75,140 @@ export async function POST(request: NextRequest) {
 // GET /api/projects - Get user's projects
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get the user from database to get their internal ID
-    let user = await UserService.getUserByClerkId(userId);
+    // Get the user from database
+    const user = await UserService.getUserById(userId);
     if (!user) {
-      console.log(`👤 Auto-syncing new user from Clerk: ${userId}`);
-      const clerkUser = await currentUser();
-      
-      if (!clerkUser) {
-        return NextResponse.json({ error: "Unable to fetch user from Clerk" }, { status: 500 });
-      }
-
-      // Sync user from Clerk to database
-      user = await UserService.syncUserFromClerk(clerkUser);
-      console.log(`✅ Successfully synced user: ${user.email}`);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Get user's projects (both owned and member)
+    // Get user's projects
     const userProjects = await ProjectService.getUserProjects(
       user._id.toString()
     );
 
-    if (!userProjects) {
-      return NextResponse.json({ projects: [] });
-    }
+    // Combine owned and member projects
+    const allProjects = [
+      ...userProjects.ownedProjects.map((project) => ({
+        ...project.toObject(),
+        role: "OWNER",
+        isOwner: true,
+      })),
+      ...userProjects.memberProjects.map((memberProject) => ({
+        ...memberProject.project,
+        role: memberProject.role,
+        isOwner: false,
+        joinedAt: memberProject.joinedAt,
+      })),
+    ];
 
-    // Get counts for each project
-    const getProjectWithCounts = async (
-      project: Record<string, unknown>,
-      role: string,
-      owner?: Record<string, unknown>
-    ) => {
-      try {
-        const stats = await ProjectService.getProjectStats(
-          (project.id as string) || (project._id as string)
-        );
-        return {
-          id: project.id || project._id,
-          name: project.name,
-          description: project.description,
-          createdAt: project.createdAt,
-          updatedAt: project.updatedAt,
-          role,
-          memberCount: stats.memberCount,
-          fileCount: stats.fileCount,
-          messageCount: stats.messageCount,
-          ...(owner && { owner }),
-        };
-      } catch (error) {
-        console.error(`Error getting stats for project ${project.id}:`, error);
-        return {
-          id: project.id || project._id,
-          name: project.name,
-          description: project.description,
-          createdAt: project.createdAt,
-          updatedAt: project.updatedAt,
-          role,
-          memberCount: 0,
-          fileCount: 0,
-          messageCount: 0,
-          ...(owner && { owner }),
-        };
-      }
-    };
+    // Format the response
+    const formattedProjects = allProjects.map((project) => ({
+      id: project._id,
+      name: project.name,
+      description: project.description,
+      isPrivate: project.isPrivate || true,
+      memberCount: project.memberCount || 1,
+      fileCount: project.fileCount || 0,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      role: project.role,
+      isOwner: project.isOwner,
+      owner: project.isOwner
+        ? {
+            id: user._id.toString(),
+            displayName: user.displayName,
+            username: user.username,
+            avatar: user.avatar,
+          }
+        : {
+            id: project.ownerId || user._id.toString(),
+            displayName: project.owner?.displayName || user.displayName,
+            username: project.owner?.username || user.username,
+            avatar: project.owner?.avatar || user.avatar,
+          },
+    }));
 
-    // Format the response with actual counts
-    const ownedProjects = await Promise.all(
-      (userProjects.ownedProjects || []).map((project) =>
-        getProjectWithCounts(project.toObject(), "OWNER")
-      )
+    // Separate owned and member projects
+    const ownedProjects = formattedProjects.filter(
+      (project) => project.isOwner
     );
-
-    const memberProjects = await Promise.all(
-      (userProjects.memberProjects || []).map((project) =>
-        getProjectWithCounts(project, project.membershipRole, {
-          id: project.ownerId,
-          displayName: project.owner?.displayName || "Unknown",
-          username: project.owner?.username || "unknown",
-          avatar: project.owner?.avatar || "",
-        })
-      )
+    const memberProjects = formattedProjects.filter(
+      (project) => !project.isOwner
     );
 
     return NextResponse.json({
       projects: {
         owned: ownedProjects,
         member: memberProjects,
-        total: ownedProjects.length + memberProjects.length,
+        total: formattedProjects.length,
       },
+      count: formattedProjects.length,
     });
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(
       { error: "Failed to fetch projects" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/projects - Delete multiple projects
+export async function DELETE(request: NextRequest) {
+  try {
+    const userId = await getCurrentUserId();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from database
+    const user = await UserService.getUserById(userId);
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const { projectIds } = body;
+
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+      return NextResponse.json(
+        { error: "Project IDs are required" },
+        { status: 400 }
+      );
+    }
+
+    // Delete each project
+    const results = await Promise.allSettled(
+      projectIds.map((projectId) =>
+        ProjectService.deleteProject(projectId, user._id.toString())
+      )
+    );
+
+    // Check results
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected");
+
+    if (failed.length > 0) {
+      console.error("Some projects failed to delete:", failed);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${succeeded} project(s)`,
+      deleted: succeeded,
+      failed: failed.length,
+    });
+  } catch (error) {
+    console.error("Error deleting projects:", error);
+    return NextResponse.json(
+      { error: "Failed to delete projects" },
       { status: 500 }
     );
   }

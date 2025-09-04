@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 
 export default function SimpleLanding() {
-  const { user, isLoaded } = useUser();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const isLoaded = status !== "loading";
   const router = useRouter();
 
   useEffect(() => {

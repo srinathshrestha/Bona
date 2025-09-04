@@ -1,57 +1,62 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-// Define routes that require authentication
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/projects(.*)",
-  "/onboarding(.*)",
-  "/api/projects(.*)",
-]);
-
-// Define public routes that don't require authentication
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/join/(.*)", // Allow access to invitation links
-]);
-
-export default clerkMiddleware(async (auth, request) => {
-  const { pathname } = request.nextUrl;
-
-  // Skip middleware for static files and Next.js internals
-  if (
-    pathname.startsWith("/_next/") ||
-    pathname.startsWith("/favicon.ico") ||
-    pathname.includes(".") ||
-    pathname.startsWith("/api/webhook")
-  ) {
+// Middleware function that runs after NextAuth authentication
+export default withAuth(
+  function middleware(req) {
+    // The user is authenticated if we reach this point
+    // You can add additional logic here if needed
     return NextResponse.next();
+  },
+  {
+    callbacks: {
+      // This callback is called to determine if the user is authorized
+      authorized: ({ token, req }) => {
+        const { pathname } = req.nextUrl;
+
+        // Public routes that don't require authentication
+        const publicPaths = [
+          "/",
+          "/sign-in",
+          "/sign-up",
+          "/auth/error",
+          "/auth/verify",
+          "/api/auth", // NextAuth routes
+          "/join", // Allow access to invitation links
+        ];
+
+        // Check if the current path is public
+        const isPublicPath = publicPaths.some(
+          (path) => pathname === path || pathname.startsWith(`${path}/`)
+        );
+
+        // Allow public paths without authentication
+        if (isPublicPath) {
+          return true;
+        }
+
+        // Check if user is authenticated for protected routes
+        return !!token;
+      },
+    },
+    pages: {
+      signIn: "/sign-in",
+      error: "/auth/error",
+    },
   }
+);
 
-  // Allow public routes
-  if (isPublicRoute(request)) {
-    return NextResponse.next();
-  }
-
-  // Protect routes that require authentication
-  if (isProtectedRoute(request)) {
-    const { userId } = await auth();
-
-    if (!userId) {
-      // Redirect to sign-in for unauthenticated users
-      const signInUrl = new URL("/sign-in", request.url);
-      signInUrl.searchParams.set("redirect_url", pathname);
-      return NextResponse.redirect(signInUrl);
-    }
-  }
-
-  // Continue with the request
-  return NextResponse.next();
-});
-
+// Configure which paths the middleware should run on
 export const config = {
-  // Run middleware on all routes except static files
-  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
-}; 
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes that don't require auth
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public|api/testimonials|api/admin/file-check).*)",
+  ],
+};

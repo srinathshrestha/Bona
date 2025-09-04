@@ -22,88 +22,24 @@ export class UserService {
   }
 
   /**
-   * Create or update user from Clerk data
-   * This syncs user data from Clerk authentication
+   * Get user by ID
    */
-  static async syncUserFromClerk(clerkUser: {
-    id: string;
-    emailAddresses: Array<{ emailAddress: string }>;
-    firstName?: string | null;
-    lastName?: string | null;
-    imageUrl?: string;
-  }): Promise<IUser> {
-    await this.init();
-
-    const email = clerkUser.emailAddresses[0]?.emailAddress;
-    if (!email) {
-      throw new Error("User must have an email address");
-    }
-
-    // Generate displayName from Clerk data if not already set
-    const displayName =
-      clerkUser.firstName && clerkUser.lastName
-        ? `${clerkUser.firstName} ${clerkUser.lastName}`.trim()
-        : clerkUser.firstName || undefined;
-
-    try {
-      // Try to find existing user
-      let user = await User.findByClerkId(clerkUser.id);
-
-      if (user) {
-        // Update existing user
-        user.avatar = clerkUser.imageUrl || user.avatar;
-        if (displayName && !user.displayName) {
-          user.displayName = displayName;
-        }
-        await user.save();
-      } else {
-        // Create new user
-        const userData = validateUser({
-          clerkId: clerkUser.id,
-          email,
-          displayName,
-          avatar: clerkUser.imageUrl,
-        });
-
-        user = new User(userData);
-        await user.save();
-      }
-
-      return user;
-    } catch (error) {
-      console.error("Error syncing user from Clerk:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user by Clerk ID with populated relations
-   */
-  static async getUserByClerkId(clerkId: string): Promise<IUser | null> {
+  static async getUserById(userId: string): Promise<IUser | null> {
     await this.init();
 
     try {
-      const user = await User.findByClerkId(clerkId);
-
-      console.log("👤 UserService.getUserByClerkId DEBUG:", {
-        clerkId,
-        found: !!user,
-        mongoId: user?._id?.toString(),
-        userIdProperty: user?.id,
-        bothEqual: user?._id?.toString() === user?.id,
-      });
-
+      const user = await User.findById(userId);
       return user;
     } catch (error) {
-      console.error("Error getting user by Clerk ID:", error);
-      throw error;
+      console.error("Error getting user by ID:", error);
+      return null;
     }
   }
 
   /**
    * Get user with project memberships and owned projects
    */
-  static async getUserWithProjects(clerkId: string): Promise<{
+  static async getUserWithProjects(userId: string): Promise<{
     user: IUser;
     ownedProjects: any[];
     memberProjects: any[];
@@ -111,7 +47,7 @@ export class UserService {
     await this.init();
 
     try {
-      const user = await User.findByClerkId(clerkId);
+      const user = await User.findById(userId);
       if (!user) return null;
 
       // Get owned projects
@@ -149,7 +85,7 @@ export class UserService {
    * Update user profile
    */
   static async updateUserProfile(
-    clerkId: string,
+    userId: string,
     data: {
       username?: string;
       displayName?: string;
@@ -166,7 +102,7 @@ export class UserService {
 
       // Check if username is available (if being updated)
       if (validatedData.username) {
-        const user = await User.findByClerkId(clerkId);
+        const user = await User.findById(userId);
         if (!user) {
           throw new Error("User not found");
         }
@@ -181,8 +117,8 @@ export class UserService {
       }
 
       // Update user
-      const updatedUser = await User.findOneAndUpdate(
-        { clerkId },
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
         { $set: validatedData },
         { new: true, runValidators: true }
       );
@@ -203,18 +139,11 @@ export class UserService {
    */
   static async isUsernameAvailable(
     username: string,
-    excludeClerkId?: string
+    excludeUserId?: string
   ): Promise<boolean> {
     await this.init();
 
     try {
-      let excludeUserId: string | undefined;
-
-      if (excludeClerkId) {
-        const user = await User.findByClerkId(excludeClerkId);
-        excludeUserId = user?._id.toString();
-      }
-
       return await User.isUsernameAvailable(username, excludeUserId);
     } catch (error) {
       console.error("Error checking username availability:", error);
@@ -320,11 +249,11 @@ export class UserService {
    * Delete user and all associated data
    * WARNING: This is a destructive operation
    */
-  static async deleteUser(clerkId: string): Promise<void> {
+  static async deleteUser(userId: string): Promise<void> {
     await this.init();
 
     try {
-      const user = await User.findByClerkId(clerkId);
+      const user = await User.findById(userId);
       if (!user) {
         throw new Error("User not found");
       }
@@ -379,7 +308,7 @@ export class UserService {
         });
 
         console.log(
-          `Successfully deleted user ${clerkId} and all associated data`
+          `Successfully deleted user ${userId} and all associated data`
         );
       } finally {
         await session.endSession();

@@ -26,24 +26,19 @@ export class FileService {
 
     await this.init();
 
-    console.log(
-      "🔍 [FILE-SERVICE] Looking up user by Clerk ID:",
-      data.uploadedById
-    );
-    // Convert uploadedById from Clerk ID to MongoDB ObjectId
-    const user = await mongoose
-      .model("User")
-      .findOne({ clerkId: data.uploadedById });
+    console.log("🔍 [FILE-SERVICE] Looking up user by ID:", data.uploadedById);
+    // Convert uploadedById from NextAuth user ID to MongoDB ObjectId
+    const user = await mongoose.model("User").findById(data.uploadedById);
       
     console.log("👤 [FILE-SERVICE] User lookup result:", {
       found: !!user,
       userId: user?._id?.toString(),
-      clerkId: data.uploadedById,
+      inputUserId: data.uploadedById,
     });
 
     if (!user) {
       console.error(
-        "❌ [FILE-SERVICE] User not found for Clerk ID:",
+        "❌ [FILE-SERVICE] User not found for ID:",
         data.uploadedById
       );
       throw new Error("User not found");

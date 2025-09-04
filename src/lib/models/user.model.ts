@@ -1,11 +1,11 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { z } from "zod";
-import { ClerkIdSchema, EmailSchema, UserSettingsSchema } from "./types";
+import { EmailSchema, UserSettingsSchema } from "./types";
 
 // Zod validation schema for User
 export const UserValidationSchema = z.object({
-  clerkId: ClerkIdSchema,
   email: EmailSchema,
+  password: z.string().min(6).optional(), // For credential-based auth
   username: z
     .string()
     .min(3)
@@ -20,19 +20,25 @@ export const UserValidationSchema = z.object({
   avatar: z.string().url().optional(),
   settings: UserSettingsSchema,
   isOnboarded: z.boolean().default(false),
+  provider: z.string().optional(), // OAuth provider (google, github, etc.)
+  providerId: z.string().optional(), // Provider account ID
+  emailVerified: z.date().optional(), // Email verification timestamp
 });
 
 // TypeScript interface for User document
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
-  clerkId: string;
   email: string;
+  password?: string; // Hashed password for credential-based auth
   username?: string;
   displayName?: string;
   bio?: string;
   avatar?: string;
   settings?: any;
   isOnboarded: boolean;
+  provider?: string; // OAuth provider
+  providerId?: string; // Provider account ID
+  emailVerified?: Date; // Email verification timestamp
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,16 +46,15 @@ export interface IUser extends Document {
 // Mongoose schema for User
 const UserSchema = new Schema<IUser>(
   {
-    clerkId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
+    },
+    password: {
+      type: String,
+      required: false, // Optional for OAuth users
     },
     username: {
       type: String,
@@ -78,6 +83,18 @@ const UserSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    provider: {
+      type: String,
+      required: false, // OAuth provider name
+    },
+    providerId: {
+      type: String,
+      required: false, // OAuth provider account ID
+    },
+    emailVerified: {
+      type: Date,
+      required: false,
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt
@@ -96,10 +113,6 @@ UserSchema.methods.toJSON = function () {
 };
 
 // Static methods
-UserSchema.statics.findByClerkId = function (clerkId: string) {
-  return this.findOne({ clerkId });
-};
-
 UserSchema.statics.findByEmail = function (email: string) {
   return this.findOne({ email: email.toLowerCase() });
 };
@@ -136,7 +149,6 @@ UserSchema.post("save", function (doc) {
 
 // Create and export the model
 export interface IUserModel extends Model<IUser> {
-  findByClerkId(clerkId: string): Promise<IUser | null>;
   findByEmail(email: string): Promise<IUser | null>;
   findByUsername(username: string): Promise<IUser | null>;
   isUsernameAvailable(

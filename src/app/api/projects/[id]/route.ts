@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { ProjectService, UserService } from "@/lib/database";
 import { IProject } from "@/lib/models/project.model";
 
@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -17,7 +17,7 @@ export async function GET(
     const { id: projectId } = await params;
 
     // Get the user from database
-    const user = await UserService.getUserByClerkId(userId);
+    const user = await UserService.getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -48,76 +48,79 @@ export async function GET(
         createdAt: projectData.createdAt,
         updatedAt: projectData.updatedAt,
         ownerId: projectData.ownerId,
+        owner: projectData.owner,
+        memberCount: projectData._count?.members || 0,
+        fileCount: projectData._count?.files || 0,
+        messageCount: projectData._count?.messages || 0,
         members: projectData.members || [],
         files: projectData.files || [],
-        stats: projectData._count || {
-          members: 0,
-          files: 0,
-          messages: 0,
-        },
+        settings: projectData.settings,
       },
     });
   } catch (error) {
     console.error("Error fetching project:", error);
     return NextResponse.json(
-      { error: "Failed to fetch project" },
+      { error: "Failed to fetch project details" },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/projects/[id] - Delete project (OWNER only)
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id: projectId } = await params;
-
-    // Get the user from database
-    const user = await UserService.getUserByClerkId(userId);
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Delete the project (this will check if user is owner)
-    await ProjectService.deleteProject(projectId, user._id.toString());
-
-    return NextResponse.json({
-      message: "Project deleted successfully",
-    });
-  } catch (error) {
-    console.error("Error deleting project:", error);
-
-    // Handle specific errors
-    if (error instanceof Error) {
-      if (error.message.includes("Only project owners")) {
-        return NextResponse.json(
-          { error: "Only project owners can delete projects" },
-          { status: 403 }
-        );
-      }
-    }
-
-    return NextResponse.json(
-      { error: "Failed to delete project" },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT /api/projects/[id] - Update project (OWNER/ADMIN only)
+// PUT /api/projects/[id] - Update project
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: projectId } = await params;
+    const body = await request.json();
+
+    // Get the user from database
+    const user = await UserService.getUserById(userId);
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Update the project
+    const updatedProject = await ProjectService.updateProject(
+      projectId,
+      user._id.toString(),
+      body
+    );
+
+    return NextResponse.json({
+      success: true,
+      project: updatedProject,
+    });
+  } catch (error: any) {
+    console.error("Error updating project:", error);
+
+    if (error.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "You don't have permission to update this project" },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Failed to update project" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/projects/[id] - Delete project
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -125,50 +128,34 @@ export async function PUT(
     const { id: projectId } = await params;
 
     // Get the user from database
-    const user = await UserService.getUserByClerkId(userId);
+    const user = await UserService.getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const body = await request.json();
-    const updateData = {
-      name: body.name,
-      description: body.description,
-      settings: body.settings,
-    };
-
-    // Update the project (this will check if user has permission)
-    const updatedProject = await ProjectService.updateProject(
-      projectId,
-      user._id.toString(),
-      updateData
-    );
+    // Delete the project
+    await ProjectService.deleteProject(projectId, user._id.toString());
 
     return NextResponse.json({
       success: true,
-      project: {
-        id: updatedProject.id || updatedProject._id,
-        name: updatedProject.name,
-        description: updatedProject.description,
-        isPrivate: updatedProject.isPrivate,
-        updatedAt: updatedProject.updatedAt,
-      },
+      message: "Project deleted successfully",
     });
-  } catch (error) {
-    console.error("Error updating project:", error);
+  } catch (error: any) {
+    console.error("Error deleting project:", error);
 
-    // Handle specific errors
-    if (error instanceof Error) {
-      if (error.message.includes("permission")) {
-        return NextResponse.json(
-          { error: "You don't have permission to update this project" },
-          { status: 403 }
-        );
-      }
+    if (error.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "You don't have permission to delete this project" },
+        { status: 403 }
+      );
+    }
+
+    if (error.message === "Project not found") {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     return NextResponse.json(
-      { error: "Failed to update project" },
+      { error: "Failed to delete project" },
       { status: 500 }
     );
   }

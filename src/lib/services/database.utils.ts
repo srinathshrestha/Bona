@@ -46,7 +46,7 @@ export class RoutePermissionService {
     minimumRole: string = "VIEWER"
   ) {
     try {
-      const user = await User.findByClerkId(userId);
+      const user = await User.findById(userId);
       if (!user) {
         return { hasAccess: false };
       }
@@ -79,7 +79,7 @@ export class RoutePermissionService {
 
   static async checkCreateProjectAccess(userId: string) {
     try {
-      const user = await User.findByClerkId(userId);
+      const user = await User.findById(userId);
       return { hasAccess: !!user, user: user || undefined };
     } catch (error) {
       console.error("Create project permission check error:", error);

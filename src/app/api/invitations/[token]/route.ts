@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { getCurrentUserId, getCurrentUser } from "@/lib/auth";
 import { InvitationService, UserService } from "@/lib/database";
 
 // GET /api/invitations/[token] - Validate invitation token and get project info
@@ -61,46 +61,21 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { token } = await params;
 
-    // Get the user from database, or sync from Clerk if new user
-    let user = await UserService.getUserByClerkId(userId);
+    // Get the user from database
+    const user = await UserService.getUserById(userId);
 
     if (!user) {
-      // User doesn't exist in our database yet - sync from Clerk
-      console.log(`New user joining via invitation: ${userId}`);
-      const clerkUser = await currentUser();
-
-      if (!clerkUser) {
-        return NextResponse.json(
-          { error: "Unable to retrieve user information" },
-          { status: 500 }
-        );
-      }
-
-      // Sync user from Clerk to our database
-      const syncedUser = await UserService.syncUserFromClerk({
-        id: clerkUser.id,
-        emailAddresses: clerkUser.emailAddresses,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
-        imageUrl: clerkUser.imageUrl,
-      });
-
-      // Now get the user with proper includes for invitation acceptance
-      user = await UserService.getUserByClerkId(syncedUser.clerkId);
-
-      if (!user) {
-        return NextResponse.json(
-          { error: "Failed to create user account" },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json(
+        { error: "User not found. Please complete your profile first." },
+        { status: 404 }
+      );
     }
 
     // Get request information for logging

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 
 // Interface for project data
 interface Project {
@@ -49,10 +49,11 @@ interface ProjectsResponse {
 }
 
 export default function DashboardPage() {
-  const { user: clerkUser, isLoaded } = useUser();
+  const { data: session, status } = useSession();
+  const clerkUser = session?.user;
+  const isLoaded = status !== "loading";
   const [dbUser, setDbUser] = useState<{
     id: string;
-    clerkId: string;
     email: string;
     username?: string;
     displayName?: string;
@@ -371,8 +372,7 @@ export default function DashboardPage() {
               <div className="hidden md:block text-right">
                 <p className="text-sm font-medium text-foreground">
                   {dbUser?.displayName?.split(" ")[0] ||
-                    clerkUser?.fullName?.split(" ")[0] ||
-                    clerkUser?.firstName ||
+                    clerkUser?.name?.split(" ")[0] ||
                     clerkUser?.username ||
                     "User"}
                 </p>
@@ -382,9 +382,9 @@ export default function DashboardPage() {
                   </p>
                 )}
               </div>
-              {clerkUser?.imageUrl && (
+              {clerkUser?.image && (
                 <Image
-                  src={clerkUser.imageUrl}
+                  src={clerkUser.image}
                   alt="Profile"
                   width={32}
                   height={32}

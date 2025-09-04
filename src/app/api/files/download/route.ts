@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { FileService } from "@/lib/services";
 import { RoutePermissionService } from "@/lib/services";
 import { getDownloadPresignedUrl } from "@/lib/s3";
@@ -7,7 +7,7 @@ import { getDownloadPresignedUrl } from "@/lib/s3";
 // GET /api/files/download - Get download URL for a file
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

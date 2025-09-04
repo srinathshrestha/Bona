@@ -32,7 +32,6 @@ export type FileAccessType = z.infer<typeof FileAccessTypeSchema>;
 export const ObjectIdSchema = z
   .string()
   .regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
-export const ClerkIdSchema = z.string().min(1, "Clerk ID is required");
 export const EmailSchema = z.string().email("Invalid email format");
 export const DateSchema = z.date();
 

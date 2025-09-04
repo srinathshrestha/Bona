@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { UserService, PermissionService } from "@/lib/database";
 import { MessageService } from "@/lib/services";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -41,7 +41,7 @@ export async function GET(
     const offset = parseInt(searchParams.get("offset") || "0");
 
     // Get user from database
-    const user = await UserService.getUserByClerkId(userId);
+    const user = await UserService.getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -128,7 +128,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -136,7 +136,7 @@ export async function POST(
     const { id: projectId } = await params;
 
     // Get user from database
-    const user = await UserService.getUserByClerkId(userId);
+    const user = await UserService.getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }

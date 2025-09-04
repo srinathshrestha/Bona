@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { getUploadPresignedUrl, validateFile } from "@/lib/s3";
 import { RoutePermissionService } from "@/lib/services";
 
@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   console.log("🚀 [UPLOAD-URL] Starting upload URL generation...");
 
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     console.log("🔐 [UPLOAD-URL] Auth check:", { userId: userId || "NONE" });
 
     if (!userId) {

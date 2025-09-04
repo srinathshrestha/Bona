@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { getCurrentUserId } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowLeft,
@@ -26,14 +26,14 @@ export default async function ProjectSettingsPage({
   params,
 }: ProjectSettingsPageProps) {
   const { id } = await params;
-  const { userId } = await auth();
+  const userId = await getCurrentUserId();
 
   if (!userId) {
     redirect("/sign-in");
   }
 
   // Get the user from database to get their internal ID
-  const user = await UserService.getUserByClerkId(userId);
+  const user = await UserService.getUserById(userId);
   if (!user) {
     redirect("/sign-in");
   }

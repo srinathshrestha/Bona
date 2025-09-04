@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { FileService } from "@/lib/services";
 import { RoutePermissionService } from "@/lib/services";
 import { S3_CONFIG } from "@/lib/s3";
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   console.log("🚀 [FILES-POST] Starting file metadata save...");
 
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     console.log("🔐 [FILES-POST] Auth check:", { userId: userId || "NONE" });
 
     if (!userId) {
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
 // DELETE /api/files - Delete a file
 export async function DELETE(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

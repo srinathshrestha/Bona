@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import {
   ExternalLink,
   AlertCircle,
 } from "lucide-react";
-import { SignUpButton, SignInButton } from "@clerk/nextjs";
+
 import { InvitationService } from "@/lib/database";
 import { JoinActions } from "./join-actions";
 
