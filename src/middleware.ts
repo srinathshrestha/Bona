@@ -1,9 +1,9 @@
 import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 // Middleware function that runs after NextAuth authentication
 export default withAuth(
-  function middleware(req) {
+  function middleware(req: NextRequest) {
     // The user is authenticated if we reach this point
     // You can add additional logic here if needed
     return NextResponse.next();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,7 @@ interface UserProfile {
   displayName?: string;
   bio?: string;
   avatar?: string;
+  emailVerified?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,10 +25,17 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const changePwd = useRef({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const changeEmail = useRef({ newEmail: "", code: "", currentPassword: "" });
   const [formData, setFormData] = useState({
     username: "",
     displayName: "",
     bio: "",
+    profileGradient: "",
   });
 
   // Fetch user profile on component mount
@@ -45,6 +53,8 @@ export default function ProfilePage() {
           username: data.user.username || "",
           displayName: data.user.displayName || "",
           bio: data.user.bio || "",
+          profileGradient:
+            (data.user.settings?.profileGradient as string) || "",
         });
       }
     } catch (error) {
@@ -62,7 +72,15 @@ export default function ProfilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          username: formData.username,
+          displayName: formData.displayName,
+          bio: formData.bio,
+          settings: {
+            ...(user as any)?.settings,
+            profileGradient: formData.profileGradient,
+          },
+        }),
       });
 
       if (response.ok) {
@@ -172,12 +190,21 @@ export default function ProfilePage() {
             <CardContent className="space-y-4">
               {/* Profile Picture */}
               <div className="flex items-center space-x-4">
-                {user?.avatar && (
+                {/* Show avatar image if present, else show gradient preview if set, else placeholder */}
+                {user?.avatar ? (
                   <img
                     src={user.avatar}
                     alt="Profile"
                     className="w-16 h-16 rounded-full"
                   />
+                ) : formData.profileGradient ? (
+                  <div
+                    className="w-16 h-16 rounded-full border"
+                    style={{ background: formData.profileGradient }}
+                    aria-label="Profile gradient preview"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-muted" />
                 )}
                 <div>
                   <h3 className="font-semibold text-foreground">
@@ -253,6 +280,59 @@ export default function ProfilePage() {
                 </p>
               </div>
 
+              {/* Profile Gradient Picker */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Profile Gradient
+                </label>
+                <div className="flex items-center space-x-3">
+                  <div
+                    className="w-12 h-12 rounded-full border"
+                    style={{
+                      background: formData.profileGradient || "#e5e7eb",
+                    }}
+                    title="Preview"
+                  />
+                  <input
+                    type="text"
+                    value={formData.profileGradient}
+                    onChange={(e) =>
+                      handleChange("profileGradient", e.target.value)
+                    }
+                    placeholder="e.g. linear-gradient(135deg, #34d399, #60a5fa)"
+                    className="flex-1 px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "linear-gradient(135deg, #34d399 0%, #60a5fa 100%)",
+                    "linear-gradient(135deg, #f472b6 0%, #f59e0b 100%)",
+                    "linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%)",
+                    "linear-gradient(135deg, #22d3ee 0%, #4ade80 100%)",
+                    "radial-gradient(circle at 30% 30%, #f472b6, #60a5fa)",
+                  ].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => handleChange("profileGradient", g)}
+                      className="w-10 h-10 rounded-full border"
+                      style={{ background: g }}
+                      aria-label="Pick gradient"
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handleChange("profileGradient", "")}
+                    className="px-2 py-1 text-xs border rounded-md text-foreground"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tip: Paste any valid CSS gradient value.
+                </p>
+              </div>
+
               {/* Save Button */}
               <div className="flex justify-end pt-4">
                 <Button
@@ -307,6 +387,183 @@ export default function ProfilePage() {
                       : "Unknown"}
                   </p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Profile Options */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Options</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-4">
+                {/* Change Password */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    Change Password
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <input
+                      type="password"
+                      placeholder="Current password"
+                      className="px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={(e) =>
+                        (changePwd.current.currentPassword = e.target.value)
+                      }
+                    />
+                    <input
+                      type="password"
+                      placeholder="New password"
+                      className="px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={(e) =>
+                        (changePwd.current.newPassword = e.target.value)
+                      }
+                    />
+                    <input
+                      type="password"
+                      placeholder="Confirm new password"
+                      className="px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={(e) =>
+                        (changePwd.current.confirmPassword = e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Button
+                      variant="default"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(
+                            "/api/users/change-password",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify(changePwd.current),
+                            }
+                          );
+                          if (res.ok)
+                            toast.success("Password updated successfully");
+                          else {
+                            const err = await res.json();
+                            toast.error(
+                              err.error || "Failed to change password"
+                            );
+                          }
+                        } catch {
+                          toast.error("Failed to change password");
+                        }
+                      }}
+                    >
+                      Update Password
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Change Email (OTP) */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    Change Email
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 overflow-hidden">
+                    {/* New email */}
+                    <div className="min-w-0">
+                      <input
+                        type="email"
+                        placeholder="New email"
+                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        onChange={(e) =>
+                          (changeEmail.current.newEmail = e.target.value)
+                        }
+                      />
+                    </div>
+
+                    {/* Send code button */}
+                    <div className="min-w-0">
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(
+                              "/api/users/change-email/request",
+                              {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  newEmail: changeEmail.current.newEmail,
+                                }),
+                              }
+                            );
+                            if (res.ok)
+                              toast.success(
+                                "Verification code sent to new email"
+                              );
+                            else toast.error("Failed to send code");
+                          } catch {
+                            toast.error("Failed to send code");
+                          }
+                        }}
+                      >
+                        Send Code
+                      </Button>
+                    </div>
+
+                    {/* Enter code */}
+                    <div className="min-w-0">
+                      <input
+                        type="text"
+                        placeholder="Enter code"
+                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        onChange={(e) =>
+                          (changeEmail.current.code = e.target.value)
+                        }
+                      />
+                    </div>
+
+                    {/* Current password */}
+                    <div className="min-w-0">
+                      <input
+                        type="password"
+                        placeholder="Current password"
+                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        onChange={(e) =>
+                          (changeEmail.current.currentPassword = e.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Button
+                      variant="default"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(
+                            "/api/users/change-email/confirm",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify(changeEmail.current),
+                            }
+                          );
+                          if (res.ok) {
+                            toast.success("Email updated successfully");
+                            fetchUserProfile();
+                          } else {
+                            const err = await res.json();
+                            toast.error(err.error || "Failed to change email");
+                          }
+                        } catch {
+                          toast.error("Failed to change email");
+                        }
+                      }}
+                    >
+                      Update Email
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Removed quick-send OTP buttons as per request */}
               </div>
             </CardContent>
           </Card>

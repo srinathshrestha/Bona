@@ -31,6 +31,36 @@ class EmailService {
     });
   }
 
+  // Send a 6-digit OTP code with Bona-themed styling
+  async sendOtpEmail(
+    email: string,
+    code: string,
+    heading: string,
+    subtext: string
+  ): Promise<void> {
+    const mailOptions = {
+      from: this.fromEmail,
+      to: email,
+      subject: `${heading} - Bona`,
+      html: `
+        <div style="max-width: 600px; margin: 0 auto; padding: 24px; font-family: Arial, sans-serif;">
+          <div style="text-align:center; margin-bottom: 12px;">
+            <h1 style="margin:0; color:#111827; font-size:24px;">${heading}</h1>
+            <p style="margin:8px 0 0; color:#6B7280; font-size:14px;">${subtext}</p>
+          </div>
+          <div style="text-align:center; margin:28px 0;">
+            <div style="display:inline-block; letter-spacing:6px; font-weight:700; font-size:28px; color:#111827; border:1px solid #E5E7EB; padding:12px 18px; border-radius:8px; background:#F9FAFB;">
+              ${code}
+            </div>
+          </div>
+          <p style="color:#6B7280; font-size:13px; line-height:1.6;">This code will expire in 10 minutes. If you didn’t request this, you can safely ignore this email.</p>
+          <p style="color:#9CA3AF; font-size:12px; margin-top:16px;">Bona • Secure collaboration for teams</p>
+        </div>
+      `,
+    };
+    await this.transporter.sendMail(mailOptions);
+  }
+
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${token}`;
 

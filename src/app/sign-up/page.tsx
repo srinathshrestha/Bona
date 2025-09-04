@@ -14,6 +14,11 @@ export default function SignUpPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingVerify, setPendingVerify] = useState<{ email: string } | null>(
+    null
+  );
 
   // Get redirect URL from query params or default to onboarding
   const redirectUrl = searchParams.get("redirect") || "/onboarding";
@@ -24,6 +29,17 @@ export default function SignUpPage() {
     username: "",
     displayName: "",
   });
+
+  const passwordScore = (() => {
+    const pwd = formData.password || "";
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    return Math.min(score, 4);
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,26 +75,55 @@ export default function SignUpPage() {
         return;
       }
 
-      // Registration successful, now sign in
-      toast.success("Account created successfully!");
+      // Registration successful: require email verification via OTP
+      await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          purpose: "verify_email",
+        }),
+      });
+      setPendingVerify({ email: formData.email });
+      toast.success("Account created. Please verify your email.");
+    } catch (error) {
+      console.error("Sign up error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // Automatically sign in the user
+  const [verifyCode, setVerifyCode] = useState("");
+  const handleVerify = async () => {
+    if (!pendingVerify?.email || !verifyCode) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: pendingVerify.email,
+          purpose: "verify_email",
+          code: verifyCode,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Invalid or expired code");
+        return;
+      }
+      // Auto sign-in after verification
       const signInResult = await signIn("credentials", {
         email: formData.email,
         password: formData.password,
         redirect: false,
       });
-
       if (signInResult?.ok) {
         router.push(redirectUrl);
         router.refresh();
       } else {
-        // If auto sign-in fails, redirect to sign-in page
         router.push("/sign-in");
       }
-    } catch (error) {
-      console.error("Sign up error:", error);
-      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -118,98 +163,176 @@ export default function SignUpPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Registration Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  required
-                  disabled={isLoading}
-                  autoComplete="email"
-                />
-              </div>
+            {!pendingVerify && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    required
+                    disabled={isLoading}
+                    autoComplete="email"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username (optional)</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="johndoe"
-                  value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
-                  disabled={isLoading}
-                  autoComplete="username"
-                  pattern="^[a-zA-Z0-9_-]+$"
-                  title="Username can only contain letters, numbers, hyphens, and underscores"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username (optional)</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="johndoe"
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
+                    disabled={isLoading}
+                    autoComplete="username"
+                    pattern="^[a-zA-Z0-9_-]+$"
+                    title="Username can only contain letters, numbers, hyphens, and underscores"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name (optional)</Label>
-                <Input
-                  id="displayName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={formData.displayName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, displayName: e.target.value })
-                  }
-                  disabled={isLoading}
-                  autoComplete="name"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Display Name (optional)</Label>
+                  <Input
+                    id="displayName"
+                    type="text"
+                    placeholder="John Doe"
+                    value={formData.displayName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, displayName: e.target.value })
+                    }
+                    disabled={isLoading}
+                    autoComplete="name"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Create a strong password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  required
-                  disabled={isLoading}
-                  autoComplete="new-password"
-                  minLength={6}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Must be at least 6 characters
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a strong password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      required
+                      disabled={isLoading}
+                      autoComplete="new-password"
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <div className="h-2 bg-muted rounded overflow-hidden">
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${(passwordScore / 4) * 100}%`,
+                        background:
+                          passwordScore >= 3
+                            ? "#10b981"
+                            : passwordScore === 2
+                            ? "#f59e0b"
+                            : "#ef4444",
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use 8+ chars with upper, lower, number, symbol.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirm ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      value={formData.confirmPassword}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      required
+                      disabled={isLoading}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((s) => !s)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+                    >
+                      {showConfirm ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Creating account..." : "Create Account"}
+                </Button>
+              </form>
+            )}
+
+            {/* Verification Step */}
+            {pendingVerify && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Enter the 6-digit code sent to{" "}
+                  <strong>{pendingVerify.email}</strong>
                 </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password *</Label>
                 <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                  required
+                  type="text"
+                  placeholder="Enter verification code"
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value)}
                   disabled={isLoading}
-                  autoComplete="new-password"
                 />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleVerify}
+                    disabled={isLoading}
+                    className="flex-1"
+                  >
+                    Verify and Continue
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={async () => {
+                      await fetch("/api/auth/otp/send", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          email: pendingVerify.email,
+                          purpose: "verify_email",
+                        }),
+                      });
+                      toast.success("Code re-sent");
+                    }}
+                  >
+                    Resend
+                  </Button>
+                </div>
               </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create Account"}
-              </Button>
-            </form>
+            )}
 
             {/* Divider */}
             <div className="relative">
@@ -263,8 +386,12 @@ export default function SignUpPage() {
             </Link>
           </p>
           <p className="mt-2 text-xs">
-            By creating an account, you agree to our Terms of Service and
-            Privacy Policy
+            By creating an account, you agree to our
+            <Link href="/terms" className="text-primary hover:text-primary/80">
+              {" "}
+              Terms & Conditions
+            </Link>
+            .
           </p>
         </div>
       </div>
