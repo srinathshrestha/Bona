@@ -52,17 +52,6 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const clerkUser = session?.user;
   const isLoaded = status !== "loading";
-  const [dbUser, setDbUser] = useState<{
-    id: string;
-    email: string;
-    username?: string;
-    displayName?: string;
-    bio?: string;
-    avatar?: string;
-    isOnboarded: boolean;
-    settings?: Record<string, unknown>;
-    createdAt: string;
-  } | null>(null);
   const [projects, setProjects] = useState<ProjectsResponse["projects"] | null>(
     null
   );
@@ -89,12 +78,7 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch user from database
-      const userResponse = await fetch("/api/users/profile");
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        setDbUser(userData.user);
-      }
+      // Optionally fetch user from database if needed later
 
       // Fetch projects
       await fetchProjects();
@@ -147,7 +131,7 @@ export default function DashboardPage() {
     });
 
     // Fallback to _id if id is not available
-    const projectId = project.id || (project as any)._id;
+    const projectId = project.id;
 
     if (!projectId) {
       console.error("Project missing ID:", project);
@@ -177,7 +161,7 @@ export default function DashboardPage() {
                     </span>
                     {project.owner && (
                       <span className="text-sm text-muted-foreground">
-                        by {project.owner.displayName || project.owner.username}
+                        by {project.owner.username}
                       </span>
                     )}
                   </div>
@@ -388,9 +372,8 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="hidden md:block text-right">
                 <p className="text-sm font-medium text-foreground">
-                  {dbUser?.displayName?.split(" ")[0] ||
+                  {clerkUser?.username ||
                     clerkUser?.name?.split(" ")[0] ||
-                    clerkUser?.username ||
                     "User"}
                 </p>
                 {clerkUser?.username && (

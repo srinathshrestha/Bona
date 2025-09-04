@@ -140,7 +140,7 @@ export class ProjectService {
 
       // Get project with populated data
       const project = await Project.findById(projectId)
-        .populate("ownerId", "username displayName avatar")
+        .populate("ownerId", "username avatar")
         .lean();
 
       if (!project) {
@@ -149,7 +149,7 @@ export class ProjectService {
 
       // Get members
       const members = await ProjectMember.find({ projectId })
-        .populate("userId", "username displayName avatar")
+        .populate("userId", "username avatar")
         .sort({ role: 1, joinedAt: 1 })
         .lean();
 
@@ -157,7 +157,7 @@ export class ProjectService {
       const files = await mongoose
         .model("File")
         .find({ projectId })
-        .populate("uploadedById", "username displayName avatar")
+        .populate("uploadedById", "username avatar")
         .sort({ createdAt: -1 })
         .lean();
 
@@ -457,7 +457,7 @@ export class ProjectService {
         mongoose
           .model("Message")
           .find({ projectId: projectObjectId })
-          .populate("userId", "displayName username avatar")
+          .populate("userId", "username avatar")
           .sort({ createdAt: -1 })
           .limit(5),
       ]);
@@ -496,7 +496,6 @@ export class ProjectService {
         user: member.userId
           ? {
               id: (member.userId as unknown as IUser).id,
-              displayName: (member.userId as unknown as IUser).displayName,
               username: (member.userId as unknown as IUser).username,
               email: (member.userId as unknown as IUser).email,
               avatar: (member.userId as unknown as IUser).avatar,

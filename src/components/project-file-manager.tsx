@@ -114,7 +114,7 @@ export function ProjectFileManager({
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, userRole]);
 
   useEffect(() => {
     if (open) {

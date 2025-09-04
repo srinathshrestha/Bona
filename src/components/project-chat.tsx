@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -406,10 +407,12 @@ export function ProjectChat({
                 {message.replyTo && message.replyTo.user && (
                   <div className="ml-4 pl-4 border-l-2 border-muted bg-muted/20 rounded-r-lg p-2">
                     <div className="flex items-center space-x-2 mb-1">
-                      <img
+                      <Image
                         src={getUserAvatar(message.replyTo.user)}
                         alt={getUserDisplayName(message.replyTo.user)}
-                        className="w-4 h-4 rounded-full"
+                        width={16}
+                        height={16}
+                        className="w-4 h-4 rounded-full object-cover"
                       />
                       <span className="text-xs font-medium text-muted-foreground">
                         {getUserDisplayName(message.replyTo.user)}
@@ -424,10 +427,12 @@ export function ProjectChat({
                 {/* Main message */}
                 {message.user && (
                   <div className="flex items-start space-x-3">
-                    <img
+                    <Image
                       src={getUserAvatar(message.user)}
                       alt={getUserDisplayName(message.user)}
-                      className="w-8 h-8 rounded-full flex-shrink-0"
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">

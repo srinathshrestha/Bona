@@ -1,12 +1,7 @@
 import connectMongoDB from "../mongodb";
-import {
-  User,
-  validateUser,
-  validatePartialUser,
-  IUser,
-} from "../models/user.model";
+import { User, validatePartialUser, IUser } from "../models/user.model";
 import { ProjectMember } from "../models/projectMember.model";
-import { Project } from "../models/project.model";
+import { Project, IProject } from "../models/project.model";
 import mongoose from "mongoose";
 
 /**
@@ -41,8 +36,12 @@ export class UserService {
    */
   static async getUserWithProjects(userId: string): Promise<{
     user: IUser;
-    ownedProjects: any[];
-    memberProjects: any[];
+    ownedProjects: IProject[];
+    memberProjects: Array<{
+      project: IProject;
+      membershipRole: string;
+      joinedAt: Date;
+    }>;
   } | null> {
     await this.init();
 
@@ -65,7 +64,7 @@ export class UserService {
         .lean();
 
       const memberProjects = membershipRecords.map((record) => ({
-        ...record.projectId,
+        project: record.projectId as unknown as IProject,
         membershipRole: record.role,
         joinedAt: record.joinedAt,
       }));
@@ -88,10 +87,9 @@ export class UserService {
     userId: string,
     data: {
       username?: string;
-      displayName?: string;
       bio?: string;
       isOnboarded?: boolean;
-      settings?: any;
+      settings?: Record<string, unknown>;
     }
   ): Promise<IUser> {
     await this.init();
@@ -192,16 +190,12 @@ export class UserService {
       const searchRegex = new RegExp(searchTerm, "i");
 
       return await User.find({
-        $or: [
-          { displayName: searchRegex },
-          { username: searchRegex },
-          { email: searchRegex },
-        ],
+        $or: [{ username: searchRegex }, { email: searchRegex }],
         isOnboarded: true, // Only show onboarded users
       })
-        .select("clerkId username displayName avatar bio")
+        .select("username avatar bio")
         .limit(limit)
-        .sort({ displayName: 1 });
+        .sort({ username: 1 });
     } catch (error) {
       console.error("Error searching users:", error);
       throw error;
@@ -327,7 +321,7 @@ export class UserService {
 
     try {
       return await User.find({ isOnboarded: true })
-        .select("clerkId username displayName avatar")
+        .select("username avatar")
         .sort({ updatedAt: -1 })
         .limit(limit);
     } catch (error) {

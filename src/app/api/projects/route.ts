@@ -49,7 +49,6 @@ export async function POST(request: NextRequest) {
         createdAt: result.project.createdAt,
         owner: {
           id: user._id.toString(),
-          displayName: user.displayName,
           username: user.username,
           avatar: user.avatar,
         },
@@ -122,13 +121,11 @@ export async function GET() {
       owner: project.isOwner
         ? {
             id: user._id.toString(),
-            displayName: user.displayName,
             username: user.username,
             avatar: user.avatar,
           }
         : {
             id: project.ownerId || user._id.toString(),
-            displayName: project.owner?.displayName || user.displayName,
             username: project.owner?.username || user.username,
             avatar: project.owner?.avatar || user.avatar,
           },

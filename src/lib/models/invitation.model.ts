@@ -163,10 +163,10 @@ ProjectInviteLinkSchema.statics.findByToken = function (token: string) {
       select: "name description ownerId",
       populate: {
         path: "ownerId",
-        select: "displayName username avatar",
+        select: "username avatar",
       },
     })
-    .populate("createdById", "displayName username avatar");
+    .populate("createdById", "username avatar");
 };
 
 // MemberJoinLog Schema
@@ -220,7 +220,7 @@ MemberJoinLogSchema.statics.findByProject = function (
   limit = 50
 ) {
   return this.find({ projectId })
-    .populate("userId", "clerkId username displayName avatar")
+    .populate("userId", "clerkId username avatar")
     .sort({ joinedAt: -1 })
     .limit(limit);
 };
@@ -298,7 +298,7 @@ LegacyInvitationSchema.methods.isExpired = function (): boolean {
 LegacyInvitationSchema.statics.findByToken = function (token: string) {
   return this.findOne({ token })
     .populate("projectId", "name description")
-    .populate("inviterId", "displayName username avatar");
+    .populate("inviterId", "username avatar");
 };
 
 LegacyInvitationSchema.statics.findPendingByProject = function (
@@ -309,7 +309,7 @@ LegacyInvitationSchema.statics.findPendingByProject = function (
     status: "PENDING",
     expiresAt: { $gt: new Date() },
   })
-    .populate("inviterId", "displayName username avatar")
+    .populate("inviterId", "username avatar")
     .sort({ createdAt: -1 });
 };
 
@@ -321,7 +321,9 @@ export interface IProjectInviteLinkModel extends Model<IProjectInviteLink> {
 
 export interface IMemberJoinLogModel extends Model<IMemberJoinLog> {
   findByProject(projectId: string, limit?: number): Promise<IMemberJoinLog[]>;
-  getJoinStats(projectId: string): Promise<any[]>;
+  getJoinStats(
+    projectId: string
+  ): Promise<Array<{ _id: IMemberJoinLog["joinMethod"]; count: number }>>;
 }
 
 export interface ILegacyInvitationModel extends Model<ILegacyInvitation> {
@@ -351,14 +353,11 @@ export const LegacyInvitation =
   );
 
 // Export validation functions
-export const validateProjectInviteLink = (data: any) => {
-  return ProjectInviteLinkValidationSchema.parse(data);
-};
+export const validateProjectInviteLink = (data: unknown) =>
+  ProjectInviteLinkValidationSchema.parse(data);
 
-export const validateMemberJoinLog = (data: any) => {
-  return MemberJoinLogValidationSchema.parse(data);
-};
+export const validateMemberJoinLog = (data: unknown) =>
+  MemberJoinLogValidationSchema.parse(data);
 
-export const validateLegacyInvitation = (data: any) => {
-  return LegacyInvitationValidationSchema.parse(data);
-};
+export const validateLegacyInvitation = (data: unknown) =>
+  LegacyInvitationValidationSchema.parse(data);

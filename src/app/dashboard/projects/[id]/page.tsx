@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserId } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import {
   ArrowLeft,
   Settings,
@@ -82,7 +83,11 @@ export default async function ProjectDetailPage({
   }
 
   // Get user's role in this project
-  const userMembership = (project as any).members?.find((member: any) => {
+  const userMembership = (
+    project as unknown as {
+      members?: Array<{ userId: string | { _id: string }; role: string }>;
+    }
+  ).members?.find((member) => {
     // Handle both populated and non-populated userId
     const memberUserId =
       typeof member.userId === "string"
@@ -172,9 +177,7 @@ export default async function ProjectDetailPage({
                     </div>
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-1" />
-                      {project.ownerId?.displayName ||
-                        project.ownerId?.username ||
-                        "Unknown Owner"}
+                      {project.ownerId?.username || "Unknown Owner"}
                     </div>
                   </div>
                 </CardContent>
@@ -260,14 +263,12 @@ export default async function ProjectDetailPage({
                     >
                       <div className="flex items-center space-x-3">
                         {member.userId?.avatar ? (
-                          <img
+                          <Image
                             src={member.userId.avatar}
-                            alt={
-                              member.userId.displayName ||
-                              member.userId.username ||
-                              "User"
-                            }
-                            className="w-8 h-8 rounded-full"
+                            alt={member.userId.username || "User"}
+                            width={32}
+                            height={32}
+                            className="w-8 h-8 rounded-full object-cover"
                           />
                         ) : (
                           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
@@ -276,9 +277,7 @@ export default async function ProjectDetailPage({
                         )}
                         <div>
                           <p className="font-medium text-foreground">
-                            {member.userId?.displayName ||
-                              member.userId?.username ||
-                              "Unknown User"}
+                            {member.userId?.username || "Unknown User"}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {member.userId?.email || "No email"}
@@ -317,44 +316,63 @@ export default async function ProjectDetailPage({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {(project as any).files?.length > 0 ? (
+                {(project as unknown as { files?: Array<unknown> }).files
+                  ?.length > 0 ? (
                   <div className="space-y-3">
-                    {(project as any).files.slice(0, 3).map((file: any) => (
-                      <div
-                        key={file._id?.toString() || file.id}
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <FolderOpen className="w-4 h-4 text-primary" />
+                    {(
+                      project as unknown as {
+                        files: Array<{
+                          _id?: string;
+                          id?: string;
+                          originalName: string;
+                          createdAt: string;
+                          fileSize: number;
+                          uploadedById?: { username?: string };
+                        }>;
+                      }
+                    ).files
+                      .slice(0, 3)
+                      .map((file) => (
+                        <div
+                          key={file._id?.toString() || file.id}
+                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                              <FolderOpen className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {file.originalName}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(file.createdAt).toLocaleDateString()}{" "}
+                                •{" "}
+                                {file.uploadedById?.username || "Unknown User"}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {file.originalName}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(file.createdAt).toLocaleDateString()} •{" "}
-                              {file.uploadedById?.displayName ||
-                                file.uploadedById?.username ||
-                                "Unknown User"}
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">
+                              {(file.fileSize / 1024 / 1024).toFixed(1)} MB
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">
-                            {(file.fileSize / 1024 / 1024).toFixed(1)} MB
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {(project as any).files.length > 3 && (
+                      ))}
+                    {(project as unknown as { files: unknown[] }).files.length >
+                      3 && (
                       <div className="text-center pt-2">
                         <ProjectFileManager
                           projectId={id}
                           userRole={userRole}
                           trigger={
                             <Button variant="ghost" size="sm">
-                              View all {(project as any).files.length} files
+                              View all{" "}
+                              {
+                                (project as unknown as { files: unknown[] })
+                                  .files.length
+                              }{" "}
+                              files
                             </Button>
                           }
                         />

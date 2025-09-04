@@ -20,7 +20,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const testimonialId = params.id;
+    const testimonialId = (await params).id;
     const testimonial = await TestimonialService.approveTestimonial(
       testimonialId,
       "admin"
@@ -59,7 +59,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const testimonialId = params.id;
+    const testimonialId = (await params).id;
     const testimonial = await TestimonialService.rejectTestimonial(
       testimonialId
     );

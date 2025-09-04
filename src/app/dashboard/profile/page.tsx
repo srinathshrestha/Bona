@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -187,10 +188,12 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-4">
                 {/* Show avatar image if present, else show gradient preview if set, else placeholder */}
                 {user?.avatar ? (
-                  <img
+                  <Image
                     src={user.avatar}
                     alt="Profile"
-                    className="w-16 h-16 rounded-full"
+                    width={64}
+                    height={64}
+                    className="w-16 h-16 rounded-full object-cover"
                   />
                 ) : formData.profileGradient ? (
                   <div
@@ -599,11 +602,9 @@ export default function ProfilePage() {
                         toast.success("Thanks for your feedback!");
                         setFeedback("");
                       } else {
-                        const err = (await res
-                          .json()
-                          .catch(() => ({
-                            error: "Failed to submit feedback",
-                          }))) as {
+                        const err = (await res.json().catch(() => ({
+                          error: "Failed to submit feedback",
+                        }))) as {
                           error?: string;
                         };
                         toast.error(err.error ?? "Failed to submit feedback");

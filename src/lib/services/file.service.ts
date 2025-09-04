@@ -1,20 +1,24 @@
 import connectMongoDB from "../mongodb";
-import {
-  File,
-  validateFile,
-  validatePartialFile,
-  IFile,
-} from "../models/file.model";
+import { File, validateFile, IFile } from "../models/file.model";
 import { ProjectMember } from "../models/projectMember.model";
 import { deleteFile as deleteS3File } from "../s3";
 import mongoose from "mongoose";
+
+interface CreateFileInput {
+  originalName: string;
+  fileSize: number;
+  mimeType: string;
+  projectId: string;
+  s3Key: string;
+  uploadedById: string;
+}
 
 export class FileService {
   private static async init() {
     await connectMongoDB();
   }
 
-  static async createFile(data: any): Promise<IFile> {
+  static async createFile(data: CreateFileInput): Promise<IFile> {
     console.log("💾 [FILE-SERVICE] Starting file creation:", {
       originalName: data.originalName,
       fileSize: data.fileSize,
@@ -29,7 +33,7 @@ export class FileService {
     console.log("🔍 [FILE-SERVICE] Looking up user by ID:", data.uploadedById);
     // Convert uploadedById from NextAuth user ID to MongoDB ObjectId
     const user = await mongoose.model("User").findById(data.uploadedById);
-      
+
     console.log("👤 [FILE-SERVICE] User lookup result:", {
       found: !!user,
       userId: user?._id?.toString(),
@@ -68,7 +72,7 @@ export class FileService {
 
   static async getFilesByProject(
     projectId: string,
-    options: any = {}
+    options: Record<string, unknown> = {}
   ): Promise<IFile[]> {
     await this.init();
     return await File.findByProject(projectId, options);
