@@ -5,10 +5,11 @@ import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, User, Save } from "lucide-react";
+import { ArrowLeft, User, Save, LogOut } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import { signOut } from "next-auth/react";
 
 // User interface for profile data
 interface UserProfile {
@@ -167,6 +168,17 @@ export default function ProfilePage() {
               <h1 className="text-2xl font-bold text-foreground">
                 Profile Settings
               </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                title="Log out"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Log out
+              </Button>
             </div>
           </div>
         </div>
