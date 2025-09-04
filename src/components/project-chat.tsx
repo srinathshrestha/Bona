@@ -94,7 +94,6 @@ export function ProjectChat({
   const [projectFiles, setProjectFiles] = useState<FileData[]>([]);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -140,60 +139,10 @@ export function ProjectChat({
     }
   }, [projectId]);
 
-  // Fetch messages when dialog opens and set up SSE connection
+  // Fetch messages when dialog opens
   useEffect(() => {
     if (open) {
       fetchMessages();
-
-      // Set up Server-Sent Events for real-time updates
-      const sse = new EventSource(`/api/projects/${projectId}/messages/sse`);
-      setEventSource(sse);
-
-      sse.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === "new_message" && data.message) {
-            // Add new message to the list
-            setMessages((prevMessages) => {
-              // Ensure the message has a valid ID
-              const messageWithId = {
-                ...data.message,
-                id: data.message.id || `sse-${Date.now()}-${Math.random()}`,
-              };
-
-              // Check if message already exists to avoid duplicates
-              const messageExists = prevMessages.some(
-                (msg) => msg.id === messageWithId.id
-              );
-              if (messageExists) return prevMessages;
-
-              return [...prevMessages, messageWithId];
-            });
-          } else if (data.type === "connected") {
-            console.log("✅ Chat SSE connected");
-          }
-        } catch (error) {
-          console.error("Failed to parse SSE message:", error);
-        }
-      };
-
-      sse.onerror = (error) => {
-        console.error("SSE connection error:", error);
-        // Fallback to polling if SSE fails
-        setTimeout(() => {
-          if (sse.readyState === EventSource.CLOSED) {
-            console.log("SSE closed, attempting to reconnect...");
-            // The useEffect will handle reconnection when state changes
-          }
-        }, 5000);
-      };
-
-      // Cleanup function
-      return () => {
-        sse.close();
-        setEventSource(null);
-      };
     }
   }, [open, projectId, fetchMessages]);
 
@@ -233,6 +182,35 @@ export function ProjectChat({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showFilePicker]);
+
+  // Set up SSE connection for real-time messages
+  useEffect(() => {
+    if (open && projectId) {
+      const eventSource = new EventSource(
+        `/api/projects/${projectId}/messages/sse`
+      );
+
+      eventSource.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === "newMessage") {
+            setMessages((prev) => [...prev, message.data]);
+          }
+        } catch (error) {
+          console.error("Error parsing SSE message:", error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error("SSE error:", error);
+        eventSource.close();
+      };
+
+      return () => {
+        eventSource.close();
+      };
+    }
+  }, [open, projectId]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending) return;

@@ -140,7 +140,7 @@ export class ProjectService {
 
       // Get project with populated data
       const project = await Project.findById(projectId)
-        .populate("ownerId", "clerkId username displayName avatar")
+        .populate("ownerId", "username displayName avatar")
         .lean();
 
       if (!project) {
@@ -149,7 +149,7 @@ export class ProjectService {
 
       // Get members
       const members = await ProjectMember.find({ projectId })
-        .populate("userId", "clerkId username displayName avatar")
+        .populate("userId", "username displayName avatar")
         .sort({ role: 1, joinedAt: 1 })
         .lean();
 
@@ -157,7 +157,7 @@ export class ProjectService {
       const files = await mongoose
         .model("File")
         .find({ projectId })
-        .populate("uploadedById", "clerkId username displayName avatar")
+        .populate("uploadedById", "username displayName avatar")
         .sort({ createdAt: -1 })
         .lean();
 
@@ -283,7 +283,7 @@ export class ProjectService {
       await member.save();
 
       // Populate user data
-      await member.populate("userId", "clerkId username displayName avatar");
+              await member.populate("userId", "username displayName avatar");
       await member.populate("projectId", "name description");
 
       return member;
@@ -321,8 +321,8 @@ export class ProjectService {
         .sort({ joinedAt: -1 });
 
       const memberProjects = memberships.map((membership) => ({
-        ...membership.projectId.toObject(),
-        membershipRole: membership.role,
+        project: (membership.projectId as unknown as IProject).toObject(),
+        role: membership.role,
         joinedAt: membership.joinedAt,
       }));
 

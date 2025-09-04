@@ -138,96 +138,113 @@ export default function DashboardPage() {
   };
 
   // Project card component
-  const ProjectCard = ({ project }: { project: Project }) => (
-    <Link href={`/dashboard/projects/${project.id}`}>
-      <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <FolderOpen className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-semibold">
-                  {project.name}
-                </CardTitle>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(
-                      project.role
-                    )}`}
-                  >
-                    {project.role}
-                  </span>
-                  {project.owner && (
-                    <span className="text-sm text-muted-foreground">
-                      by {project.owner.displayName || project.owner.username}
+  const ProjectCard = ({ project }: { project: Project }) => {
+    // Debug logging to see what's in the project object
+    console.log("ProjectCard render:", {
+      projectId: project.id,
+      projectName: project.name,
+      project: project,
+    });
+
+    // Fallback to _id if id is not available
+    const projectId = project.id || (project as any)._id;
+
+    if (!projectId) {
+      console.error("Project missing ID:", project);
+      return null;
+    }
+
+    return (
+      <Link href={`/dashboard/projects/${projectId}`}>
+        <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <FolderOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold">
+                    {project.name}
+                  </CardTitle>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(
+                        project.role
+                      )}`}
+                    >
+                      {project.role}
                     </span>
-                  )}
+                    {project.owner && (
+                      <span className="text-sm text-muted-foreground">
+                        by {project.owner.displayName || project.owner.username}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {project.description && (
-            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-              {project.description}
-            </p>
-          )}
+          </CardHeader>
+          <CardContent className="pt-0">
+            {project.description && (
+              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                {project.description}
+              </p>
+            )}
 
-          {/* Project stats */}
-          <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1">
-                <Users className="w-4 h-4" />
-                <span>{project.memberCount}</span>
+            {/* Project stats */}
+            <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-1">
+                  <Users className="w-4 h-4" />
+                  <span>{project.memberCount}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <FileText className="w-4 h-4" />
+                  <span>{project.fileCount}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <MessageSquare className="w-4 h-4" />
+                  <span>{project.messageCount}</span>
+                </div>
               </div>
               <div className="flex items-center space-x-1">
-                <FileText className="w-4 h-4" />
-                <span>{project.fileCount}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <MessageSquare className="w-4 h-4" />
-                <span>{project.messageCount}</span>
+                <Calendar className="w-4 h-4" />
+                <span>{formatDate(project.updatedAt)}</span>
               </div>
             </div>
-            <div className="flex items-center space-x-1">
-              <Calendar className="w-4 h-4" />
-              <span>{formatDate(project.updatedAt)}</span>
-            </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = `/dashboard/projects/${project.id}`;
-              }}
-            >
-              Open Project
-            </Button>
-            {(project.role === "OWNER" || project.role === "ADMIN") && (
+            {/* Actions */}
+            <div className="flex items-center justify-between">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={(e) => {
                   e.preventDefault();
-                  window.location.href = `/dashboard/projects/${project.id}/settings`;
+                  window.location.href = `/dashboard/projects/${project.id}`;
                 }}
               >
-                <Settings className="w-4 h-4" />
+                Open Project
               </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
+              {(project.role === "OWNER" || project.role === "ADMIN") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.href = `/dashboard/projects/${project.id}/settings`;
+                  }}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  };
 
   // Skeleton card component for loading state
   const ProjectCardSkeleton = () => (
@@ -443,9 +460,15 @@ export default function DashboardPage() {
                   Your Projects ({projects.owned.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.owned.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
-                  ))}
+                  {projects.owned.map((project) => {
+                    console.log("Rendering owned project:", project);
+                    return (
+                      <ProjectCard
+                        key={`owned-${project.id}`}
+                        project={project}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -457,9 +480,15 @@ export default function DashboardPage() {
                   Shared with You ({projects.member.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.member.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
-                  ))}
+                  {projects.member.map((project) => {
+                    console.log("Rendering member project:", project);
+                    return (
+                      <ProjectCard
+                        key={`member-${project.id}`}
+                        project={project}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}

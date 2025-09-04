@@ -31,7 +31,23 @@ interface ProjectDetailPageProps {
 export default async function ProjectDetailPage({
   params,
 }: ProjectDetailPageProps) {
-  const { id } = await params;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+
+  // Debug logging
+  console.log("ProjectDetailPage params:", {
+    id,
+    resolvedParams,
+    idType: typeof id,
+    idValue: id,
+  });
+
+  // Validate project ID
+  if (!id || id === "undefined" || id === "null") {
+    console.error("Invalid project ID:", id);
+    redirect("/dashboard");
+  }
+
   const userId = await getCurrentUserId();
 
   if (!userId) {
@@ -46,6 +62,14 @@ export default async function ProjectDetailPage({
 
   let project;
   try {
+    // Debug logging
+    console.log("About to call ProjectService.getProject with:", {
+      projectId: id,
+      userId: user._id.toString(),
+      idType: typeof id,
+      userIdType: typeof user._id.toString(),
+    });
+
     // Get project details with access control
     project = await ProjectService.getProject(id, user._id.toString());
   } catch (error) {
