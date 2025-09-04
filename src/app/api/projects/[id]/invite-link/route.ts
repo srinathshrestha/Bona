@@ -35,6 +35,8 @@ export async function GET(
       );
     }
 
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin;
+
     // Return invitation link data
     return NextResponse.json({
       id: inviteLink.id,
@@ -46,9 +48,7 @@ export async function GET(
       createdAt: inviteLink.createdAt,
       createdById: inviteLink.createdById,
       projectId: inviteLink.projectId,
-      url: `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/join/${inviteLink.secretToken}`,
+      url: `${origin}/join/${inviteLink.secretToken}`,
     });
   } catch (error) {
     console.error("Error fetching invitation link:", error);
@@ -100,6 +100,8 @@ export async function POST(
       }
     );
 
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin;
+
     // Return created invitation link
     return NextResponse.json(
       {
@@ -112,9 +114,7 @@ export async function POST(
         createdAt: inviteLink.createdAt,
         createdById: inviteLink.createdById,
         projectId: inviteLink.projectId,
-        url: `${
-          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-        }/join/${inviteLink.secretToken}`,
+        url: `${origin}/join/${inviteLink.secretToken}`,
       },
       { status: 201 }
     );
