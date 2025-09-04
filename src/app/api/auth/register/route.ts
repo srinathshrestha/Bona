@@ -15,7 +15,6 @@ const RegisterSchema = z.object({
       "Username can only contain letters, numbers, hyphens, and underscores"
     )
     .optional(),
-  displayName: z.string().min(1).max(100).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,7 +30,6 @@ export async function POST(request: NextRequest) {
       email: validatedData.email,
       password: validatedData.password,
       username: validatedData.username,
-      displayName: validatedData.displayName,
     });
 
     // Return success response (without password)
@@ -43,7 +41,6 @@ export async function POST(request: NextRequest) {
           id: user._id.toString(),
           email: user.email,
           username: user.username,
-          displayName: user.displayName,
         },
       },
       { status: 201 }

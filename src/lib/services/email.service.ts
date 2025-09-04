@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 interface MailgunConfig {
   apiKey: string;
   domain: string;
@@ -7,28 +5,51 @@ interface MailgunConfig {
 }
 
 class EmailService {
-  private transporter: nodemailer.Transporter;
-  private fromEmail: string;
+  private config: MailgunConfig;
 
   constructor() {
-    const config: MailgunConfig = {
-      apiKey: process.env.MAILGUN_API_KEY!,
-      domain: process.env.MAILGUN_DOMAIN!,
-      fromEmail: process.env.MAILGUN_FROM_EMAIL!,
+    this.config = {
+      apiKey: process.env.MAILGUN_API_KEY || "",
+      domain: process.env.MAILGUN_DOMAIN || "",
+      fromEmail: process.env.MAILGUN_FROM_EMAIL || "",
     };
+  }
 
-    this.fromEmail = config.fromEmail;
+  private async sendViaMailgun(params: {
+    to: string;
+    subject: string;
+    html?: string;
+    text?: string;
+  }): Promise<void> {
+    const { apiKey, domain, fromEmail } = this.config;
+    if (!apiKey || !domain || !fromEmail) {
+      throw new Error("Mailgun configuration missing");
+    }
 
-    // Create transporter using Mailgun SMTP
-    this.transporter = nodemailer.createTransport({
-      host: "smtp.mailgun.org",
-      port: 587,
-      secure: false,
-      auth: {
-        user: `postmaster@${config.domain}`,
-        pass: config.apiKey,
+    const form = new URLSearchParams();
+    form.append("from", fromEmail);
+    form.append("to", params.to);
+    form.append("subject", params.subject);
+    if (params.text) form.append("text", params.text);
+    if (params.html) form.append("html", params.html);
+
+    const authHeader =
+      "Basic " + Buffer.from(`api:${apiKey}`).toString("base64");
+
+    const res = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/x-www-form-urlencoded",
       },
+      body: form.toString(),
+      cache: "no-store",
     });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Mailgun send failed (${res.status}): ${body}`);
+    }
   }
 
   // Send a 6-digit OTP code with Bona-themed styling
@@ -38,8 +59,7 @@ class EmailService {
     heading: string,
     subtext: string
   ): Promise<void> {
-    const mailOptions = {
-      from: this.fromEmail,
+    await this.sendViaMailgun({
       to: email,
       subject: `${heading} - Bona`,
       html: `
@@ -57,15 +77,13 @@ class EmailService {
           <p style="color:#9CA3AF; font-size:12px; margin-top:16px;">Bona • Secure collaboration for teams</p>
         </div>
       `,
-    };
-    await this.transporter.sendMail(mailOptions);
+    });
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${token}`;
 
-    const mailOptions = {
-      from: this.fromEmail,
+    await this.sendViaMailgun({
       to: email,
       subject: "Verify your email address - Bona",
       html: `
@@ -89,16 +107,13 @@ class EmailService {
           </p>
         </div>
       `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    });
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`;
 
-    const mailOptions = {
-      from: this.fromEmail,
+    await this.sendViaMailgun({
       to: email,
       subject: "Reset your password - Bona",
       html: `
@@ -122,9 +137,7 @@ class EmailService {
           </p>
         </div>
       `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    });
   }
 
   async sendEmailChangeConfirmation(
@@ -133,8 +146,7 @@ class EmailService {
   ): Promise<void> {
     const confirmUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm-email-change?token=${token}`;
 
-    const mailOptions = {
-      from: this.fromEmail,
+    await this.sendViaMailgun({
       to: email,
       subject: "Confirm email address change - Bona",
       html: `
@@ -158,9 +170,7 @@ class EmailService {
           </p>
         </div>
       `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    });
   }
 }
 

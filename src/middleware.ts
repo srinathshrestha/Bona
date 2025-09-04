@@ -4,8 +4,27 @@ import { NextResponse, NextRequest } from "next/server";
 // Middleware function that runs after NextAuth authentication
 export default withAuth(
   function middleware(req: NextRequest) {
-    // The user is authenticated if we reach this point
-    // You can add additional logic here if needed
+    const { pathname } = req.nextUrl;
+
+    // Admin panels guard (custom password, not NextAuth)
+    const isAdminPanel =
+      pathname.startsWith("/admin/testimonials") ||
+      pathname.startsWith("/admin/feedback");
+
+    if (isAdminPanel) {
+      // Allow previously authorized sessions via cookie
+      const cookie = req.cookies.get("admin_auth");
+      if (cookie?.value === "ok") {
+        return NextResponse.next();
+      }
+      // Not authorized -> redirect to admin auth UI
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin/auth";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // The user is authenticated if we reach this point for non-admin routes
     return NextResponse.next();
   },
   {
@@ -23,6 +42,12 @@ export default withAuth(
           "/auth/verify",
           "/api/auth", // NextAuth routes
           "/join", // Allow access to invitation links
+          "/admin/testimonials", // admin panels use custom auth
+          "/admin/feedback",
+          "/admin/auth", // custom admin auth UI
+          "/api/admin/auth", // allow custom admin auth API
+          "/api/admin/testimonials", // allow admin testimonials API
+          "/api/admin/feedback", // allow admin feedback API
         ];
 
         // Check if the current path is public
@@ -57,6 +82,6 @@ export const config = {
      * - public folder
      * - api routes that don't require auth
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|api/testimonials|api/admin/file-check).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public|api/testimonials|api/admin/file-check|api/admin/auth|api/admin/testimonials|api/admin/feedback).*)",
   ],
 };

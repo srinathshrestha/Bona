@@ -15,7 +15,7 @@ export const UserValidationSchema = z.object({
       "Username can only contain letters, numbers, hyphens, and underscores"
     )
     .optional(),
-  displayName: z.string().min(1).max(100).optional(),
+  // displayName removed
   bio: z.string().max(500).optional(),
   avatar: z.string().url().optional(),
   settings: UserSettingsSchema,
@@ -31,7 +31,7 @@ export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password for credential-based auth
   username?: string;
-  displayName?: string;
+  // displayName removed
   bio?: string;
   avatar?: string;
   settings?: any;
@@ -64,10 +64,7 @@ const UserSchema = new Schema<IUser>(
       maxlength: 30,
       match: /^[a-zA-Z0-9_-]+$/,
     },
-    displayName: {
-      type: String,
-      maxlength: 100,
-    },
+    // displayName removed
     bio: {
       type: String,
       maxlength: 500,

@@ -53,6 +53,8 @@ export const UserSettingsSchema = z
         timezone: z.string().default("UTC"),
       })
       .optional(),
+    // Persist gradient chosen on profile page
+    profileGradient: z.string().max(500).optional(),
   })
   .optional();
 

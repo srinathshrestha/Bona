@@ -47,7 +47,8 @@ export class AuthService {
       email: data.email.toLowerCase(),
       password: hashedPassword,
       username: data.username,
-      displayName: data.displayName || data.username,
+      // Mark as verified because OTP step was completed before registration
+      emailVerified: new Date(),
       isOnboarded: false,
     });
 

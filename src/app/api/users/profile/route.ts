@@ -23,7 +23,7 @@ export async function GET() {
         id: user._id.toString(),
         email: user.email,
         username: user.username,
-        displayName: user.displayName,
+        // displayName removed
         bio: user.bio,
         avatar: user.avatar,
         emailVerified: user.emailVerified,
@@ -52,12 +52,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, displayName, bio, isOnboarded, settings } = body;
+    const { username, bio, isOnboarded, settings } = body;
 
     // Update user profile
     const updatedUser = await UserService.updateUserProfile(userId, {
       username,
-      displayName,
       bio,
       isOnboarded,
       settings,
@@ -69,7 +68,7 @@ export async function PUT(request: NextRequest) {
         id: updatedUser._id.toString(),
         email: updatedUser.email,
         username: updatedUser.username,
-        displayName: updatedUser.displayName,
+        // displayName removed
         bio: updatedUser.bio,
         avatar: updatedUser.avatar,
         emailVerified: updatedUser.emailVerified,

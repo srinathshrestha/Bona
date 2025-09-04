@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { Otp, IOtp, OtpPurpose } from "@/lib/models/otp.model";
-import { connectToDatabase } from "@/lib/database";
+import connectMongoDB from "@/lib/mongodb";
 
 const OTP_TTL_MINUTES = 10;
 const SALT_ROUNDS = 10;
@@ -19,7 +19,7 @@ export class OtpService {
     purpose: OtpPurpose,
     send: (email: string, code: string) => Promise<void>
   ): Promise<void> {
-    await connectToDatabase();
+    await connectMongoDB();
 
     // Invalidate previous active OTPs for this purpose
     await Otp.updateMany(
@@ -49,7 +49,7 @@ export class OtpService {
     purpose: OtpPurpose,
     code: string
   ): Promise<boolean> {
-    await connectToDatabase();
+    await connectMongoDB();
 
     const record: IOtp | null = await Otp.findOne({
       email,

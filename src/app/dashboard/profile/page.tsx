@@ -7,13 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, User, Save } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 // User interface for profile data
 interface UserProfile {
   id: string;
   email: string;
   username?: string;
-  displayName?: string;
   bio?: string;
   avatar?: string;
   emailVerified?: string | null;
@@ -31,9 +31,9 @@ export default function ProfilePage() {
     confirmPassword: "",
   });
   const changeEmail = useRef({ newEmail: "", code: "", currentPassword: "" });
+  const [feedback, setFeedback] = useState("");
   const [formData, setFormData] = useState({
     username: "",
-    displayName: "",
     bio: "",
     profileGradient: "",
   });
@@ -51,7 +51,6 @@ export default function ProfilePage() {
         setUser(data.user);
         setFormData({
           username: data.user.username || "",
-          displayName: data.user.displayName || "",
           bio: data.user.bio || "",
           profileGradient:
             (data.user.settings?.profileGradient as string) || "",
@@ -74,12 +73,8 @@ export default function ProfilePage() {
         },
         body: JSON.stringify({
           username: formData.username,
-          displayName: formData.displayName,
           bio: formData.bio,
-          settings: {
-            ...(user as any)?.settings,
-            profileGradient: formData.profileGradient,
-          },
+          settings: { profileGradient: formData.profileGradient },
         }),
       });
 
@@ -208,7 +203,7 @@ export default function ProfilePage() {
                 )}
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    {user?.displayName || user?.username || "User"}
+                    {user?.username || "User"}
                   </h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                   <p className="text-xs text-muted-foreground">
@@ -245,22 +240,7 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              {/* Display Name */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Display Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.displayName}
-                  onChange={(e) => handleChange("displayName", e.target.value)}
-                  placeholder="How should we display your name?"
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <p className="text-xs text-muted-foreground">
-                  This is how your name will appear to other users
-                </p>
-              </div>
+              {/* Display Name removed by product decision */}
 
               {/* Bio */}
               <div className="space-y-2">
@@ -568,6 +548,77 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+      {/* Help Us Improve */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Help us improve</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Share your experience or leave a testimonial to help us improve
+              Bona.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/testimonial">
+                <Button variant="outline" size="sm">
+                  Open Testimonial Page
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Quick feedback
+              </label>
+              <Textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="Tell us what went well or what we can improve..."
+                rows={4}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!feedback.trim()) {
+                      toast.error("Please enter feedback before submitting");
+                      return;
+                    }
+                    try {
+                      const res = await fetch("/api/feedback", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          content: feedback.trim(),
+                          author: user?.username || user?.email || "Anonymous",
+                          email: user?.email,
+                        }),
+                      });
+                      if (res.ok) {
+                        toast.success("Thanks for your feedback!");
+                        setFeedback("");
+                      } else {
+                        const err = (await res
+                          .json()
+                          .catch(() => ({
+                            error: "Failed to submit feedback",
+                          }))) as {
+                          error?: string;
+                        };
+                        toast.error(err.error ?? "Failed to submit feedback");
+                      }
+                    } catch {
+                      toast.error("Failed to submit feedback");
+                    }
+                  }}
+                >
+                  Submit Feedback
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

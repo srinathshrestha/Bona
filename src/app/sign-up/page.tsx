@@ -27,7 +27,6 @@ export default function SignUpPage() {
     password: "",
     confirmPassword: "",
     username: "",
-    displayName: "",
   });
 
   const passwordScore = (() => {
@@ -53,29 +52,7 @@ export default function SignUpPage() {
     setIsLoading(true);
 
     try {
-      // Register the user via API
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          username: formData.username || undefined,
-          displayName: formData.displayName || undefined,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle registration error
-        toast.error(data.error || "Failed to create account");
-        return;
-      }
-
-      // Registration successful: require email verification via OTP
+      // Send OTP first; do NOT create user yet
       await fetch("/api/auth/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,7 +62,7 @@ export default function SignUpPage() {
         }),
       });
       setPendingVerify({ email: formData.email });
-      toast.success("Account created. Please verify your email.");
+      toast.success("We sent a verification code to your email.");
     } catch (error) {
       console.error("Sign up error:", error);
       toast.error("An unexpected error occurred. Please try again.");
@@ -112,7 +89,23 @@ export default function SignUpPage() {
         toast.error("Invalid or expired code");
         return;
       }
-      // Auto sign-in after verification
+      // Create account only after successful verification
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          username: formData.username || undefined,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(data.error || "Failed to create account");
+        return;
+      }
+
+      // Auto sign-in after registration
       const signInResult = await signIn("credentials", {
         email: formData.email,
         password: formData.password,
@@ -198,20 +191,7 @@ export default function SignUpPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name (optional)</Label>
-                  <Input
-                    id="displayName"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.displayName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, displayName: e.target.value })
-                    }
-                    disabled={isLoading}
-                    autoComplete="name"
-                  />
-                </div>
+                {/* Display Name removed by product decision */}
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password *</Label>

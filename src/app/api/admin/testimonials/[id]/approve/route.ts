@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TestimonialService } from "@/lib/services/testimonial.service";
 
-// Simple admin password check
-const ADMIN_PASSWORD = "1r6zj7uknn";
-
-function checkAdminAuth(request: NextRequest): boolean {
+function isAuthorized(request: NextRequest): boolean {
   const authHeader = request.headers.get("authorization");
   if (!authHeader) return false;
-
-  const password = authHeader.replace("Bearer ", "");
-  return password === ADMIN_PASSWORD;
+  const provided = authHeader.replace("Bearer ", "");
+  const expected = process.env.ADMIN_PANEL_PASSWORD || "";
+  return provided === expected;
 }
 
 // PATCH /api/admin/testimonials/[id]/approve - Approve a testimonial
@@ -19,7 +16,7 @@ export async function PATCH(
 ) {
   try {
     // Check admin authentication
-    if (!checkAdminAuth(request)) {
+    if (!isAuthorized(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -58,7 +55,7 @@ export async function DELETE(
 ) {
   try {
     // Check admin authentication
-    if (!checkAdminAuth(request)) {
+    if (!isAuthorized(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
