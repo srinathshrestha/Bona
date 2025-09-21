@@ -37,7 +37,15 @@ export default function SignInPage() {
 
       if (result?.error) {
         // Handle authentication error
-        toast.error(result.error);
+        if (result.error.includes("This account was created with Google")) {
+          toast.error(result.error);
+          // Optionally redirect to set password page
+          setTimeout(() => {
+            router.push("/set-password");
+          }, 2000);
+        } else {
+          toast.error(result.error);
+        }
       } else if (result?.ok) {
         // Successful login
         toast.success("Welcome back!");
@@ -56,12 +64,22 @@ export default function SignInPage() {
     setIsLoading(true);
     try {
       // Sign in with Google OAuth
-      await signIn("google", {
+      const result = await signIn("google", {
         callbackUrl,
+        redirect: false,
       });
+
+      if (result?.error) {
+        toast.error("Failed to sign in with Google. Please try again.");
+        setIsLoading(false);
+      } else if (result?.ok) {
+        toast.success("Successfully signed in with Google!");
+        router.push(callbackUrl);
+        router.refresh();
+      }
     } catch (error) {
       console.error("Google sign in error:", error);
-      toast.error("Failed to sign in with Google");
+      toast.error("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };

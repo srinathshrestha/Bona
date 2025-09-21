@@ -32,10 +32,10 @@ import { formatDistanceToNow } from "date-fns";
 // Simple text file viewer component
 const TextFileViewer = ({
   fileUrl,
-  fileName,
+  filename,
 }: {
   fileUrl: string;
-  fileName?: string;
+  filename?: string;
 }) => {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -64,47 +64,54 @@ const TextFileViewer = ({
 
   // Detect file type for basic styling
   const getFileType = (name?: string, content?: string) => {
-    if (!name && !content) return 'text';
-    
-    const lowerName = name?.toLowerCase() || '';
-    if (lowerName.endsWith('.html') || lowerName.endsWith('.htm')) return 'html';
-    if (lowerName.endsWith('.css')) return 'css';
-    if (lowerName.endsWith('.js') || lowerName.endsWith('.jsx')) return 'javascript';
-    if (lowerName.endsWith('.ts') || lowerName.endsWith('.tsx')) return 'typescript';
-    if (lowerName.endsWith('.json')) return 'json';
-    if (lowerName.endsWith('.xml')) return 'xml';
-    if (lowerName.endsWith('.md') || lowerName.endsWith('.markdown')) return 'markdown';
-    
+    if (!name && !content) return "text";
+
+    const lowerName = name?.toLowerCase() || "";
+    if (lowerName.endsWith(".html") || lowerName.endsWith(".htm"))
+      return "html";
+    if (lowerName.endsWith(".css")) return "css";
+    if (lowerName.endsWith(".js") || lowerName.endsWith(".jsx"))
+      return "javascript";
+    if (lowerName.endsWith(".ts") || lowerName.endsWith(".tsx"))
+      return "typescript";
+    if (lowerName.endsWith(".json")) return "json";
+    if (lowerName.endsWith(".xml")) return "xml";
+    if (lowerName.endsWith(".md") || lowerName.endsWith(".markdown"))
+      return "markdown";
+
     // Detect by content if no filename
-    if (content?.trim().startsWith('<!DOCTYPE') || content?.includes('<html')) return 'html';
-    if (content?.trim().startsWith('{') || content?.trim().startsWith('[')) return 'json';
-    
-    return 'text';
+    if (content?.trim().startsWith("<!DOCTYPE") || content?.includes("<html"))
+      return "html";
+    if (content?.trim().startsWith("{") || content?.trim().startsWith("["))
+      return "json";
+
+    return "text";
   };
 
-  const fileType = getFileType(fileName, content);
+  const fileType = getFileType(filename, content);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-32">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-        <p>Loading content...</p>
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+          <p>Loading content...</p>
+        </div>
       </div>
-    </div>
-  );
-  
-  if (error) return (
-    <div className="flex items-center justify-center h-32">
-      <div className="text-center text-red-500">
-        <p>Error: {error}</p>
+    );
+
+  if (error)
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="text-center text-red-500">
+          <p>Error: {error}</p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   const isLargeFile = content.length > 10000;
-  const displayContent = showFullContent || !isLargeFile 
-    ? content 
-    : content.substring(0, 10000);
+  const displayContent =
+    showFullContent || !isLargeFile ? content : content.substring(0, 10000);
 
   return (
     <div className="h-full flex flex-col">
@@ -116,7 +123,9 @@ const TextFileViewer = ({
           </span>
           <span>{content.length.toLocaleString()} characters</span>
           {isLargeFile && !showFullContent && (
-            <span className="text-yellow-600">• Showing first 10,000 characters</span>
+            <span className="text-yellow-600">
+              • Showing first 10,000 characters
+            </span>
           )}
         </div>
         {isLargeFile && (
@@ -125,11 +134,11 @@ const TextFileViewer = ({
             size="sm"
             variant="outline"
           >
-            {showFullContent ? 'Show Less' : 'Show All'}
+            {showFullContent ? "Show Less" : "Show All"}
           </Button>
         )}
       </div>
-      
+
       {/* Content area with proper scrolling */}
       <div className="flex-1 overflow-auto">
         <pre className="whitespace-pre-wrap text-sm p-4 font-mono leading-relaxed break-words overflow-wrap-anywhere min-h-full">
@@ -137,7 +146,8 @@ const TextFileViewer = ({
           {isLargeFile && !showFullContent && (
             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded">
               <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-                ... File content truncated for performance. Click &quot;Show All&quot; to view the complete file.
+                ... File content truncated for performance. Click &quot;Show
+                All&quot; to view the complete file.
               </p>
             </div>
           )}
@@ -149,7 +159,7 @@ const TextFileViewer = ({
 
 interface FileData {
   _id: string;
-  fileName: string;
+  filename: string;
   originalName: string;
   fileSize: number;
   mimeType: string;
@@ -182,7 +192,7 @@ const formatFileSize = (bytes: number): string => {
 };
 
 // Helper function to get file type category
-const getFileCategory = (mimeType: string, fileName?: string): string => {
+const getFileCategory = (mimeType: string, filename?: string): string => {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType.startsWith("audio/")) return "audio";
@@ -190,7 +200,7 @@ const getFileCategory = (mimeType: string, fileName?: string): string => {
   // PDF files
   if (
     mimeType === "application/pdf" ||
-    fileName?.toLowerCase().endsWith(".pdf")
+    filename?.toLowerCase().endsWith(".pdf")
   )
     return "pdf";
 
@@ -199,7 +209,7 @@ const getFileCategory = (mimeType: string, fileName?: string): string => {
     mimeType ===
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     mimeType === "application/vnd.ms-excel" ||
-    fileName?.toLowerCase().match(/\.(xlsx?|csv)$/)
+    filename?.toLowerCase().match(/\.(xlsx?|csv)$/)
   )
     return "excel";
 
@@ -208,7 +218,7 @@ const getFileCategory = (mimeType: string, fileName?: string): string => {
     mimeType ===
       "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
     mimeType === "application/vnd.ms-powerpoint" ||
-    fileName?.toLowerCase().match(/\.(pptx?|pps|ppsx)$/)
+    filename?.toLowerCase().match(/\.(pptx?|pps|ppsx)$/)
   )
     return "powerpoint";
 
@@ -217,7 +227,7 @@ const getFileCategory = (mimeType: string, fileName?: string): string => {
     mimeType ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     mimeType === "application/msword" ||
-    fileName?.toLowerCase().match(/\.(docx?|rtf)$/)
+    filename?.toLowerCase().match(/\.(docx?|rtf)$/)
   )
     return "word";
 
@@ -228,8 +238,18 @@ const getFileCategory = (mimeType: string, fileName?: string): string => {
 };
 
 // PDF Viewer component with multiple fallback options
-const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: string; file: FileData }) => {
-  const [viewMode, setViewMode] = useState<'iframe' | 'embed' | 'google' | 'download'>('iframe');
+const PDFViewer = ({
+  fileUrl,
+  filename,
+  file,
+}: {
+  fileUrl: string;
+  filename: string;
+  file: FileData;
+}) => {
+  const [viewMode, setViewMode] = useState<
+    "iframe" | "embed" | "google" | "download"
+  >("iframe");
   const [hasError, setHasError] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
@@ -237,7 +257,9 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
   useEffect(() => {
     const fetchDownloadUrl = async () => {
       try {
-        const response = await fetch(`/api/files/download?fileId=${file._id}&projectId=${file.projectId}`);
+        const response = await fetch(
+          `/api/files/download?fileId=${file._id}&projectId=${file.projectId}`
+        );
         if (response.ok) {
           const data = await response.json();
           setDownloadUrl(data.downloadUrl);
@@ -246,7 +268,7 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
         console.error("Failed to fetch download URL:", error);
       }
     };
-    
+
     if (file) {
       fetchDownloadUrl();
     }
@@ -256,23 +278,23 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
   const handleIframeError = () => {
     console.log("🔄 [PDF-VIEWER] Iframe failed, trying embed...");
     setHasError(true);
-    setViewMode('embed');
+    setViewMode("embed");
   };
 
   const handleEmbedError = () => {
     console.log("🔄 [PDF-VIEWER] Embed failed, trying Google Docs viewer...");
-    setViewMode('google');
+    setViewMode("google");
   };
 
   const openInNewTab = () => {
-    window.open(fileUrl, '_blank');
+    window.open(fileUrl, "_blank");
   };
 
   const downloadFile = () => {
     const urlToUse = downloadUrl || fileUrl;
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = urlToUse;
-    link.download = fileName;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -284,37 +306,37 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
       <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white dark:bg-gray-800 border-b rounded-t-lg gap-3 sm:gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="h-5 w-5 text-red-600 flex-shrink-0" />
-          <span className="font-medium text-sm truncate">{fileName}</span>
+          <span className="font-medium text-sm truncate">{filename}</span>
         </div>
         <div className="flex items-center gap-1 flex-wrap sm:gap-2">
           <Button
-            onClick={() => setViewMode('iframe')}
+            onClick={() => setViewMode("iframe")}
             size="sm"
-            variant={viewMode === 'iframe' ? 'default' : 'outline'}
+            variant={viewMode === "iframe" ? "default" : "outline"}
             className="text-xs sm:text-sm px-2 sm:px-3"
           >
             Direct
           </Button>
           <Button
-            onClick={() => setViewMode('google')}
+            onClick={() => setViewMode("google")}
             size="sm"
-            variant={viewMode === 'google' ? 'default' : 'outline'}
+            variant={viewMode === "google" ? "default" : "outline"}
             className="text-xs sm:text-sm px-2 sm:px-3"
           >
             Google
           </Button>
-          <Button 
-            onClick={openInNewTab} 
-            size="sm" 
+          <Button
+            onClick={openInNewTab}
+            size="sm"
             variant="outline"
             className="text-xs sm:text-sm px-2 sm:px-3"
           >
             <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">Open</span>
           </Button>
-          <Button 
-            onClick={downloadFile} 
-            size="sm" 
+          <Button
+            onClick={downloadFile}
+            size="sm"
             variant="outline"
             className="text-xs sm:text-sm px-2 sm:px-3"
           >
@@ -326,11 +348,11 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
 
       {/* PDF Content */}
       <div className="flex-1 relative">
-        {viewMode === 'iframe' && (
+        {viewMode === "iframe" && (
           <iframe
             src={fileUrl}
             className="w-full h-full border-0"
-            title={fileName}
+            title={filename}
             onError={handleIframeError}
             onLoad={() => {
               console.log("✅ [PDF-VIEWER] Iframe loaded successfully");
@@ -339,7 +361,7 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
           />
         )}
 
-        {viewMode === 'embed' && (
+        {viewMode === "embed" && (
           <embed
             src={fileUrl}
             type="application/pdf"
@@ -348,29 +370,42 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
           />
         )}
 
-        {viewMode === 'google' && (
+        {viewMode === "google" && (
           <iframe
-            src={`https://docs.google.com/viewer?url=${encodeURIComponent(downloadUrl || fileUrl)}&embedded=true`}
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(
+              downloadUrl || fileUrl
+            )}&embedded=true`}
             className="w-full h-full border-0"
-            title={fileName}
-            onError={() => setViewMode('download')}
+            title={filename}
+            onError={() => setViewMode("download")}
           />
         )}
 
-        {viewMode === 'download' && (
+        {viewMode === "download" && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
               <FileText className="h-12 w-12 sm:h-20 sm:w-20 mx-auto mb-4 text-red-600" />
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">PDF Preview Unavailable</h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">
+                PDF Preview Unavailable
+              </h3>
               <p className="text-gray-500 mb-6 text-sm sm:text-base">
-                Unable to preview this PDF file in the browser. You can download it or open it in a new tab.
+                Unable to preview this PDF file in the browser. You can download
+                it or open it in a new tab.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button onClick={downloadFile} variant="default" className="w-full sm:w-auto">
+                <Button
+                  onClick={downloadFile}
+                  variant="default"
+                  className="w-full sm:w-auto"
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Download PDF
                 </Button>
-                <Button onClick={openInNewTab} variant="outline" className="w-full sm:w-auto">
+                <Button
+                  onClick={openInNewTab}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Open in New Tab
                 </Button>
@@ -379,10 +414,12 @@ const PDFViewer = ({ fileUrl, fileName, file }: { fileUrl: string; fileName: str
           </div>
         )}
 
-        {hasError && viewMode === 'iframe' && (
+        {hasError && viewMode === "iframe" && (
           <div className="absolute inset-0 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
             <div className="text-center p-4">
-              <p className="text-yellow-600 mb-4">Direct preview failed. Trying alternative method...</p>
+              <p className="text-yellow-600 mb-4">
+                Direct preview failed. Trying alternative method...
+              </p>
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
             </div>
           </div>
@@ -418,18 +455,24 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
     setError(null);
 
     try {
-      console.log("🔍 [FILE-VIEWER] Fetching download URL for:", file.fileName);
+      console.log("🔍 [FILE-VIEWER] Fetching download URL for:", file.filename);
 
       // Determine which endpoint to use based on file type
-      const fileCategory = getFileCategory(file.mimeType, file.fileName);
-      const endpoint = fileCategory === 'pdf' 
-        ? `/api/files/view?fileId=${file._id}&projectId=${file.projectId}`
-        : `/api/files/download?fileId=${file._id}&projectId=${file.projectId}`;
+      const fileCategory = getFileCategory(file.mimeType, file.filename);
+      const endpoint =
+        fileCategory === "pdf"
+          ? `/api/files/view?fileId=${file._id}&projectId=${file.projectId}`
+          : `/api/files/download?fileId=${file._id}&projectId=${file.projectId}`;
 
-      console.log(`🔗 [FILE-VIEWER] Using ${fileCategory === 'pdf' ? 'view' : 'download'} endpoint for ${fileCategory} file`);
+      console.log(
+        `🔗 [FILE-VIEWER] Using ${
+          fileCategory === "pdf" ? "view" : "download"
+        } endpoint for ${fileCategory} file`
+      );
 
       const response = await fetch(endpoint, {
         method: "GET",
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -543,7 +586,7 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
 
   if (!file) return null;
 
-  const fileCategory = getFileCategory(file.mimeType, file.fileName);
+  const fileCategory = getFileCategory(file.mimeType, file.filename);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -560,7 +603,9 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
               </DialogDescription>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">{file.mimeType}</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {file.mimeType}
+                  </Badge>
                   <span>{formatFileSize(file.fileSize)}</span>
                 </div>
                 <span className="hidden sm:inline">
@@ -584,7 +629,12 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                   <span className="hidden sm:inline">Download</span>
                 </Button>
               )}
-              <Button onClick={onClose} variant="ghost" size="sm" className="px-2">
+              <Button
+                onClick={onClose}
+                variant="ghost"
+                size="sm"
+                className="px-2"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -656,14 +706,14 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                     </Button>
                   </div>
                   <div className="flex-1 relative overflow-hidden bg-gray-50 dark:bg-gray-900">
-                    <div 
+                    <div
                       className="absolute inset-0 overflow-auto"
                       style={{
                         scrollbarWidth: "thin",
-                        scrollbarColor: "rgba(0,0,0,0.3) transparent"
+                        scrollbarColor: "rgba(0,0,0,0.3) transparent",
                       }}
                     >
-                      <div 
+                      <div
                         className="flex items-center justify-center p-4"
                         style={{
                           minWidth: "100%",
@@ -672,7 +722,6 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                           height: zoom > 1 ? `${zoom * 100}%` : "100%",
                         }}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           ref={imageRef}
                           src={fileUrl}
@@ -684,6 +733,8 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                             maxWidth: zoom <= 1 ? "100%" : "none",
                             maxHeight: zoom <= 1 ? "100%" : "none",
                             objectFit: "contain",
+                            width: "auto",
+                            height: "auto",
                           }}
                           draggable={false}
                         />
@@ -787,7 +838,11 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
               {fileCategory === "pdf" && (
                 <div className="flex-1 flex flex-col">
                   <div className="flex-1 bg-gray-50 dark:bg-gray-900 rounded-lg relative">
-                    <PDFViewer fileUrl={fileUrl} fileName={file.originalName} file={file} />
+                    <PDFViewer
+                      fileUrl={fileUrl}
+                      filename={file.originalName}
+                      file={file}
+                    />
                   </div>
                 </div>
               )}
@@ -919,7 +974,10 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
               {fileCategory === "text" && (
                 <div className="flex-1 flex flex-col min-h-0">
                   <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg border overflow-hidden">
-                    <TextFileViewer fileUrl={fileUrl} fileName={file.originalName} />
+                    <TextFileViewer
+                      fileUrl={fileUrl}
+                      filename={file.originalName}
+                    />
                   </div>
                 </div>
               )}
@@ -945,7 +1003,10 @@ export function FileViewer({ file, isOpen, onClose }: FileViewerProps) {
                       This file type cannot be previewed in the browser.
                     </p>
                     {file.permissions.canDownload && (
-                      <Button onClick={handleDownload} className="w-full sm:w-auto">
+                      <Button
+                        onClick={handleDownload}
+                        className="w-full sm:w-auto"
+                      >
                         <Download className="h-4 w-4 mr-2" />
                         Download to view
                       </Button>

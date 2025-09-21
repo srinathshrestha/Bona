@@ -19,7 +19,11 @@ export class InvitationService {
   static async createInvitationLink(
     projectId: string,
     createdById: string,
-    options: { maxUses?: number; expiresAt?: Date } = {}
+    options: {
+      maxUses?: number;
+      expiresAt?: Date;
+      role?: "MEMBER" | "VIEWER";
+    } = {}
   ) {
     await this.init();
 
@@ -59,6 +63,7 @@ export class InvitationService {
       secretToken,
       maxUses: options.maxUses,
       expiresAt: options.expiresAt,
+      role: options.role || "MEMBER",
       isActive: true,
     });
 
@@ -119,11 +124,11 @@ export class InvitationService {
 
     try {
       const result = await session.withTransaction(async () => {
-        // Add as member
+        // Add as member with the role specified in the invitation link
         const member = new ProjectMember({
           projectId: inviteLink.projectId,
           userId,
-          role: "MEMBER",
+          role: inviteLink.role,
         });
         const savedMember = await member.save({ session });
 

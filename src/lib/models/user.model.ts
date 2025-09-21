@@ -15,7 +15,7 @@ export const UserValidationSchema = z.object({
       "Username can only contain letters, numbers, hyphens, and underscores"
     )
     .optional(),
-  // displayName removed
+  displayName: z.string().min(1).max(100).optional(),
   bio: z.string().max(500).optional(),
   avatar: z.string().url().optional(),
   settings: UserSettingsSchema,
@@ -31,14 +31,14 @@ export interface IUser extends Document {
   email: string;
   password?: string; // Hashed password for credential-based auth
   username?: string;
-  // displayName removed
+  displayName?: string;
   bio?: string;
   avatar?: string;
-  settings?: any;
+  settings?: Record<string, any>;
   isOnboarded: boolean;
   provider?: string; // OAuth provider
   providerId?: string; // Provider account ID
-  emailVerified?: Date; // Email verification timestamp
+  emailVerified?: Date | boolean; // Email verification timestamp or boolean
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,7 +64,10 @@ const UserSchema = new Schema<IUser>(
       maxlength: 30,
       match: /^[a-zA-Z0-9_-]+$/,
     },
-    // displayName removed
+    displayName: {
+      type: String,
+      maxlength: 100,
+    },
     bio: {
       type: String,
       maxlength: 500,
@@ -74,7 +77,7 @@ const UserSchema = new Schema<IUser>(
     },
     settings: {
       type: Schema.Types.Mixed,
-      default: {},
+      default: () => ({}),
     },
     isOnboarded: {
       type: Boolean,
@@ -89,7 +92,7 @@ const UserSchema = new Schema<IUser>(
       required: false, // OAuth provider account ID
     },
     emailVerified: {
-      type: Date,
+      type: Schema.Types.Mixed, // Can be Date or Boolean
       required: false,
     },
   },
@@ -122,7 +125,7 @@ UserSchema.statics.isUsernameAvailable = async function (
   username: string,
   excludeUserId?: string
 ) {
-  const query: any = { username };
+  const query: Record<string, any> = { username };
   if (excludeUserId) {
     query._id = { $ne: excludeUserId };
   }
@@ -159,10 +162,10 @@ export const User =
   mongoose.model<IUser, IUserModel>("User", UserSchema);
 
 // Export validation functions
-export const validateUser = (data: any) => {
+export const validateUser = (data: Record<string, any>) => {
   return UserValidationSchema.parse(data);
 };
 
-export const validatePartialUser = (data: any) => {
+export const validatePartialUser = (data: Record<string, any>) => {
   return UserValidationSchema.partial().parse(data);
 };

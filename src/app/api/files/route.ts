@@ -300,3 +300,78 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+// PUT /api/files - Update file metadata (rename)
+export async function PUT(request: NextRequest) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const fileId = searchParams.get("fileId");
+
+    if (!fileId) {
+      return NextResponse.json(
+        { error: "File ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { originalName } = body;
+
+    if (!originalName || typeof originalName !== "string") {
+      return NextResponse.json(
+        { error: "Original name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Get the file to check permissions
+    const file = await FileService.getFileById(fileId);
+    if (!file) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    // Check if user has permission to rename this file
+    const { hasAccess, user, userRole } = await RoutePermissionService.checkProjectAccess(
+      userId,
+      file.projectId.toString(),
+      "VIEWER"
+    );
+
+    if (!hasAccess || !user) {
+      return NextResponse.json(
+        { error: "Access denied to this project" },
+        { status: 403 }
+      );
+    }
+
+    // Only OWNER or the file uploader can rename files
+    const canRename = userRole === "OWNER" || file.uploadedById.toString() === user._id.toString();
+    
+    if (!canRename) {
+      return NextResponse.json(
+        { error: "You can only rename files you uploaded" },
+        { status: 403 }
+      );
+    }
+
+    // Update the file
+    const updatedFile = await FileService.updateFile(fileId, { originalName });
+
+    return NextResponse.json({
+      success: true,
+      file: updatedFile,
+      message: "File renamed successfully",
+    });
+  } catch (error) {
+    console.error("Error updating file:", error);
+    return NextResponse.json(
+      { error: "Failed to update file" },
+      { status: 500 }
+    );
+  }
+}

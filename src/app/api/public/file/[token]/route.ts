@@ -5,10 +5,11 @@ import { getDownloadPresignedUrl } from "@/lib/s3";
 // GET /api/public/file/[token] - Get public file information and download URL
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const file = await FileService.getFileByPublicToken(params.token);
+    const resolvedParams = await params;
+    const file = await FileService.getFileByPublicToken(resolvedParams.token);
 
     if (!file) {
       return NextResponse.json(

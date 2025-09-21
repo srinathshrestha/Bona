@@ -18,6 +18,15 @@ export const MessageValidationSchema = z.object({
       })
     )
     .optional(),
+  mentions: z
+    .array(
+      z.object({
+        userId: ObjectIdSchema,
+        username: z.string(),
+        displayName: z.string().optional(),
+      })
+    )
+    .optional(),
 });
 
 // TypeScript interface for Message document
@@ -32,6 +41,11 @@ export interface IMessage extends Document {
     filename: string;
     mimeType: string;
     fileSize: number;
+  }>;
+  mentions?: Array<{
+    userId: mongoose.Types.ObjectId;
+    username: string;
+    displayName?: string;
   }>;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +70,26 @@ const AttachmentSchema = new Schema(
     fileSize: {
       type: Number,
       required: true,
+    },
+  },
+  { _id: false }
+); // Don't create _id for sub-documents
+
+// Mention sub-schema
+const MentionSchema = new Schema(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    username: {
+      type: String,
+      required: true,
+    },
+    displayName: {
+      type: String,
+      required: false,
     },
   },
   { _id: false }
@@ -92,6 +126,16 @@ const MessageSchema = new Schema<IMessage>(
           return attachments.length <= 10; // Max 10 attachments per message
         },
         message: "A message can have at most 10 attachments",
+      },
+    },
+    mentions: {
+      type: [MentionSchema],
+      default: [],
+      validate: {
+        validator: function (mentions: any[]) {
+          return mentions.length <= 20; // Max 20 mentions per message
+        },
+        message: "A message can have at most 20 mentions",
       },
     },
   },

@@ -11,13 +11,14 @@ function isAuthorized(request: NextRequest): boolean {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     if (!isAuthorized(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const id = (await params).id;
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
     const deleted = await FeedbackService.remove(id);
     if (!deleted) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -4,6 +4,7 @@ import { ProjectMember } from "../models/projectMember.model";
 import { deleteFile as deleteS3File } from "../s3";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import { getPublicFileUrl } from "../utils/url";
 
 interface CreateFileInput {
   originalName: string;
@@ -135,9 +136,7 @@ export class FileService {
 
     const shareUrl =
       file.isPublic && file.publicShareToken
-        ? `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/public/file/${
-            file.publicShareToken
-          }`
+        ? getPublicFileUrl(file.publicShareToken)
         : "";
 
     return {
@@ -148,5 +147,33 @@ export class FileService {
   static async getFileByPublicToken(token: string): Promise<IFile | null> {
     await this.init();
     return await File.findByPublicToken(token);
+  }
+
+  static async getFileById(fileId: string): Promise<IFile | null> {
+    await this.init();
+    try {
+      return await File.findById(fileId);
+    } catch (error) {
+      console.error("Error getting file by ID:", error);
+      return null;
+    }
+  }
+
+  static async updateFile(
+    fileId: string,
+    updateData: { originalName?: string }
+  ): Promise<IFile | null> {
+    await this.init();
+    try {
+      const updatedFile = await File.findByIdAndUpdate(
+        fileId,
+        { originalName: updateData.originalName },
+        { new: true }
+      );
+      return updatedFile;
+    } catch (error) {
+      console.error("Error updating file:", error);
+      throw error;
+    }
   }
 }

@@ -5,6 +5,7 @@ import {
   UserService,
   InvitationService,
 } from "@/lib/database";
+import { getInvitationUrl } from "@/lib/utils/url";
 
 // GET /api/projects/[id]/admission-control - Get admission control status
 export async function GET(
@@ -55,9 +56,7 @@ export async function GET(
             currentUses: activeInviteLink.currentUses,
             expiresAt: activeInviteLink.expiresAt,
             createdAt: activeInviteLink.createdAt,
-            url: `${
-              process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-            }/join/${activeInviteLink.secretToken}`,
+            url: getInvitationUrl(activeInviteLink.secretToken),
           }
         : null,
 
@@ -147,9 +146,7 @@ export async function POST(
           currentUses: inviteLink.currentUses,
           expiresAt: inviteLink.expiresAt,
           createdAt: inviteLink.createdAt,
-          url: `${
-            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-          }/join/${inviteLink.secretToken}`,
+          url: getInvitationUrl(inviteLink.secretToken),
         },
       },
     });

@@ -46,6 +46,7 @@ export class RoutePermissionService {
     minimumRole: string = "VIEWER"
   ) {
     try {
+      await connectMongoDB();
       const user = await User.findById(userId);
       if (!user) {
         return { hasAccess: false };
@@ -79,6 +80,7 @@ export class RoutePermissionService {
 
   static async checkCreateProjectAccess(userId: string) {
     try {
+      await connectMongoDB();
       const user = await User.findById(userId);
       return { hasAccess: !!user, user: user || undefined };
     } catch (error) {

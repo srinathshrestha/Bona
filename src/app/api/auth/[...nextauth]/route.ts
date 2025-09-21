@@ -69,7 +69,11 @@ export const authOptions: NextAuthOptions = {
 
         // Check if user has a password (for credential-based auth)
         if (!user.password) {
-          throw new Error("Please sign in with your social account");
+          // If user exists but has no password, they likely signed up with OAuth
+          // For now, allow them to use Google sign-in
+          throw new Error(
+            "This account was created with Google. Please use 'Sign in with Google' instead."
+          );
         }
 
         // Verify password
@@ -93,7 +97,7 @@ export const authOptions: NextAuthOptions = {
       },
     }),
 
-    // Google OAuth provider
+    // Google OAuth provider with advanced features
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
@@ -102,13 +106,57 @@ export const authOptions: NextAuthOptions = {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          scope: "openid email profile",
+          include_granted_scopes: "true",
         },
       },
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          emailVerified: profile.email_verified,
+        };
+      },
+      // Enable account linking for the same email address
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
 
   // Use MongoDB adapter for session storage
   adapter: MongoDBAdapter(clientPromise),
+
+  // Note: allowDangerousEmailAccountLinking is configured per provider above
+
+  // Enable debug mode for better error logging
+  debug: process.env.NODE_ENV === "development",
+
+  // Events to handle user creation and updates
+  events: {
+    async createUser({
+      user,
+    }: {
+      user: { id: string; email?: string; name?: string; image?: string };
+    }) {
+      // This runs after the adapter creates a new user
+      await connectMongoDB();
+
+      try {
+        // Update the user with additional fields for OAuth users
+        const updateData: Record<string, string> = {
+          username: user.email?.split("@")[0] || `user_${Date.now()}`,
+        };
+
+        if (user.name) updateData.displayName = user.name;
+        if (user.image) updateData.avatar = user.image;
+
+        await User.findByIdAndUpdate(user.id, updateData);
+      } catch (error) {
+        console.error("Error updating user after creation:", error);
+      }
+    },
+  },
 
   // Configure session strategy
   session: {
@@ -132,52 +180,32 @@ export const authOptions: NextAuthOptions = {
 
   // Callbacks for customizing behavior
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // For OAuth providers, sync user data
-      if (account?.provider !== "credentials") {
-        await connectMongoDB();
-
-        // Check if user exists
-        let dbUser = await User.findOne({ email: user.email?.toLowerCase() });
-
-        if (!dbUser) {
-          // Create new user for OAuth sign-in
-          dbUser = await User.create({
-            email: user.email?.toLowerCase(),
-            displayName: user.name || profile?.name,
-            avatar: user.image || profile?.image,
-            provider: account?.provider,
-            providerId: account?.providerAccountId,
-            isOnboarded: false,
-          });
-        } else {
-          // Update existing user's OAuth info if needed
-          if (!dbUser.provider) {
-            dbUser.provider = account?.provider;
-            dbUser.providerId = account?.providerAccountId;
-            if (!dbUser.avatar && (user.image || profile?.image)) {
-              dbUser.avatar = user.image || profile?.image;
-            }
-            await dbUser.save();
-          }
-        }
-
-        // Update user object with database ID
-        user.id = dbUser._id.toString();
-        user.username = dbUser.username;
-        user.isOnboarded = dbUser.isOnboarded;
-      }
-
+    async signIn() {
+      // Allow all sign-ins - let the adapter handle user creation/linking
       return true;
     },
 
-    async jwt({ token, user, account, trigger, session }) {
+    async jwt({ token, user, trigger, session }) {
       // Initial sign in
       if (user) {
         token.id = user.id;
         token.email = user.email!;
         token.username = user.username;
         token.isOnboarded = user.isOnboarded;
+      }
+
+      // Fetch fresh user data from database if we have a user ID
+      if (token.id && !user) {
+        try {
+          await connectMongoDB();
+          const dbUser = await User.findById(token.id);
+          if (dbUser) {
+            token.username = dbUser.username;
+            token.isOnboarded = dbUser.isOnboarded;
+          }
+        } catch (error) {
+          console.error("Error fetching user data in JWT callback:", error);
+        }
       }
 
       // Update token when session is updated
@@ -208,9 +236,6 @@ export const authOptions: NextAuthOptions = {
       return baseUrl;
     },
   },
-
-  // Enable debug in development
-  debug: process.env.NODE_ENV === "development",
 
   // Configure security
   secret: process.env.NEXTAUTH_SECRET,

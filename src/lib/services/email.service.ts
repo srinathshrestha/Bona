@@ -1,3 +1,9 @@
+import {
+  getEmailVerificationUrl,
+  getPasswordResetUrl,
+  getEmailChangeConfirmationUrl,
+} from "../utils/url";
+
 interface MailgunConfig {
   apiKey: string;
   domain: string;
@@ -81,7 +87,7 @@ class EmailService {
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${token}`;
+    const verificationUrl = getEmailVerificationUrl(token);
 
     await this.sendViaMailgun({
       to: email,
@@ -111,7 +117,7 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`;
+    const resetUrl = getPasswordResetUrl(token);
 
     await this.sendViaMailgun({
       to: email,
@@ -144,7 +150,7 @@ class EmailService {
     email: string,
     token: string
   ): Promise<void> {
-    const confirmUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm-email-change?token=${token}`;
+    const confirmUrl = getEmailChangeConfirmationUrl(token);
 
     await this.sendViaMailgun({
       to: email,

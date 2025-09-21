@@ -48,6 +48,7 @@ export interface IProjectInviteLink extends Document {
   maxUses?: number;
   currentUses: number;
   expiresAt?: Date;
+  role: "MEMBER" | "VIEWER"; // Role that users will get when joining via this link
   createdAt: Date;
   updatedAt: Date;
 
@@ -114,6 +115,12 @@ const ProjectInviteLinkSchema = new Schema<IProjectInviteLink>(
     },
     expiresAt: {
       type: Date,
+    },
+    role: {
+      type: String,
+      enum: ["MEMBER", "VIEWER"],
+      default: "MEMBER",
+      required: true,
     },
   },
   {

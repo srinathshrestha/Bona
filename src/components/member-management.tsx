@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -421,12 +422,6 @@ export function MemberManagement({
               <Users className="w-5 h-5 mr-2" />
               Team Members ({members.length})
             </div>
-            {permissions.permissions.canInvite && (
-              <Button variant="outline" size="sm">
-                <Activity className="w-4 h-4 mr-1" />
-                View Activity
-              </Button>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -438,9 +433,11 @@ export function MemberManagement({
               >
                 <div className="flex items-center space-x-3">
                   {member.user.avatar ? (
-                    <img
+                    <Image
                       src={member.user.avatar}
                       alt={member.user.displayName}
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-full"
                     />
                   ) : (

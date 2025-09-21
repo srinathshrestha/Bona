@@ -36,6 +36,7 @@ interface InvitationLink {
   currentUses: number;
   expiresAt: string | null;
   createdAt: string;
+  role: "MEMBER" | "VIEWER";
   url: string;
 }
 
@@ -63,6 +64,7 @@ export function ProjectInviteDialog({
   const [expirationTime, setExpirationTime] = useState<string>("never");
   const [customExpiration, setCustomExpiration] = useState<string>("");
   const [maxUses, setMaxUses] = useState<string>("unlimited");
+  const [inviteRole, setInviteRole] = useState<"MEMBER" | "VIEWER">("MEMBER");
 
   // Check if user can create invite links (OWNER only)
   const canCreateInvites = userRole === "OWNER";
@@ -134,6 +136,7 @@ export function ProjectInviteDialog({
         body: JSON.stringify({
           expiresAt: expiresAt?.toISOString(),
           maxUses: maxUsesNum,
+          role: inviteRole,
         }),
       });
 
@@ -463,6 +466,65 @@ export function ProjectInviteDialog({
                           </div>
                         )}
 
+                        {/* Role Selection */}
+                        <div>
+                          <Label htmlFor="inviteRole-existing">
+                            Member Role
+                          </Label>
+                          <Select
+                            value={inviteRole}
+                            onValueChange={(value: "MEMBER" | "VIEWER") =>
+                              setInviteRole(value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select member role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="MEMBER">
+                                <div className="flex items-center">
+                                  <Users className="w-4 h-4 mr-2" />
+                                  Member - Can upload files, chat, and
+                                  collaborate
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="VIEWER">
+                                <div className="flex items-center">
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Viewer - Can view files and messages only
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Members can upload files and participate in chat.
+                            Viewers can only view content.
+                          </p>
+                          {/* Dynamic Role Preview Badge */}
+                          <div className="mt-2">
+                            <Badge
+                              variant="outline"
+                              className={`${
+                                inviteRole === "MEMBER"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-gray-50 text-gray-700 border-gray-200"
+                              }`}
+                            >
+                              {inviteRole === "MEMBER" ? (
+                                <>
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Member
+                                </>
+                              ) : (
+                                <>
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  Viewer
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                        </div>
+
                         {/* Max Uses */}
                         <div>
                           <Label htmlFor="maxUses-existing">Maximum Uses</Label>
@@ -613,6 +675,63 @@ export function ProjectInviteDialog({
                             />
                           </div>
                         )}
+
+                        {/* Role Selection */}
+                        <div>
+                          <Label htmlFor="inviteRole">Member Role</Label>
+                          <Select
+                            value={inviteRole}
+                            onValueChange={(value: "MEMBER" | "VIEWER") =>
+                              setInviteRole(value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select member role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="MEMBER">
+                                <div className="flex items-center">
+                                  <Users className="w-4 h-4 mr-2" />
+                                  Member - Can upload files, chat, and
+                                  collaborate
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="VIEWER">
+                                <div className="flex items-center">
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Viewer - Can view files and messages only
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Members can upload files and participate in chat.
+                            Viewers can only view content.
+                          </p>
+                          {/* Dynamic Role Preview Badge */}
+                          <div className="mt-2">
+                            <Badge
+                              variant="outline"
+                              className={`${
+                                inviteRole === "MEMBER"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-gray-50 text-gray-700 border-gray-200"
+                              }`}
+                            >
+                              {inviteRole === "MEMBER" ? (
+                                <>
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Member
+                                </>
+                              ) : (
+                                <>
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  Viewer
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                        </div>
 
                         {/* Max Uses */}
                         <div>

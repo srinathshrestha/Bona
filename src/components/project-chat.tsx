@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { MentionInput } from "@/components/mention-input";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +68,11 @@ interface Message {
     mimeType: string;
     fileSize: number;
   }>;
+  mentions?: Array<{
+    userId: string;
+    username: string;
+    displayName?: string;
+  }>;
   _count: {
     replies: number;
   };
@@ -95,6 +100,27 @@ export function ProjectChat({
   const [projectFiles, setProjectFiles] = useState<FileData[]>([]);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [mentions, setMentions] = useState<
+    Array<{
+      userId: string;
+      username: string;
+      displayName?: string;
+    }>
+  >([]);
+  const [projectMembers, setProjectMembers] = useState<
+    Array<{
+      id: string;
+      role: string;
+      user: {
+        id: string;
+        username: string | null;
+        email: string;
+        avatar: string | null;
+      } | null;
+    }>
+  >([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [resetMentions, setResetMentions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -140,6 +166,21 @@ export function ProjectChat({
     }
   }, [projectId]);
 
+  // Fetch project members for mentions
+  const fetchProjectMembers = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/members`);
+      if (response.ok) {
+        const data = await response.json();
+        setProjectMembers(data.members || []);
+      } else {
+        console.error("Failed to fetch project members");
+      }
+    } catch (error) {
+      console.error("Error fetching project members:", error);
+    }
+  }, [projectId]);
+
   // Fetch messages when dialog opens
   useEffect(() => {
     if (open) {
@@ -153,6 +194,42 @@ export function ProjectChat({
       fetchProjectFiles();
     }
   }, [open, fetchProjectFiles]);
+
+  // Fetch project members when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchProjectMembers();
+    }
+  }, [open, fetchProjectMembers]);
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const response = await fetch("/api/auth/session");
+        if (response.ok) {
+          const session = await response.json();
+          setCurrentUserId(session.user?.id || null);
+        }
+      } catch (error) {
+        console.error("Error fetching current user:", error);
+      }
+    };
+
+    if (open) {
+      getCurrentUser();
+    }
+  }, [open]);
+
+  // Reset the resetMentions flag after it's been used
+  useEffect(() => {
+    if (resetMentions) {
+      const timer = setTimeout(() => {
+        setResetMentions(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [resetMentions]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -228,11 +305,17 @@ export function ProjectChat({
           mimeType: string;
           fileSize: number;
         }>;
+        mentions?: Array<{
+          userId: string;
+          username: string;
+          displayName?: string;
+        }>;
       }
 
       const messageData: MessagePayload = {
         content: newMessage.trim(),
         replyToId: replyingTo?.id,
+        mentions: mentions.length > 0 ? mentions : undefined,
       };
 
       // Add file attachment if mentioning a file
@@ -259,6 +342,8 @@ export function ProjectChat({
         setNewMessage("");
         setReplyingTo(null);
         setMentioningFile(null);
+        setMentions([]);
+        setResetMentions(true); // Trigger mention reset
         await fetchMessages(); // Refresh messages
         // If we sent a file attachment, refresh files too
         if (mentioningFile) {
@@ -289,6 +374,53 @@ export function ProjectChat({
       return "Unknown User";
     }
     return user.displayName || user.username || "Unknown User";
+  };
+
+  // Function to render message content with mentions highlighted
+  const renderMessageContent = (
+    content: string,
+    mentions?: Array<{
+      userId: string;
+      username: string;
+      displayName?: string;
+    }>
+  ) => {
+    if (!mentions || mentions.length === 0) {
+      return content;
+    }
+
+    let renderedContent = content;
+
+    // Replace @username with highlighted mentions
+    mentions.forEach((mention) => {
+      const mentionPattern = new RegExp(`@${mention.username}`, "g");
+      const isCurrentUserMentioned =
+        currentUserId && mention.userId === currentUserId;
+      const mentionClass = isCurrentUserMentioned
+        ? "inline-flex items-center px-2 py-1 rounded-md bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs font-medium border-2 border-yellow-300 dark:border-yellow-600"
+        : "inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs font-medium";
+
+      renderedContent = renderedContent.replace(
+        mentionPattern,
+        `<span class="${mentionClass}">@${
+          mention.displayName || mention.username
+        }</span>`
+      );
+    });
+
+    return renderedContent;
+  };
+
+  // Function to check if current user is mentioned in a message
+  const isCurrentUserMentioned = (
+    mentions?: Array<{
+      userId: string;
+      username: string;
+      displayName?: string;
+    }>
+  ) => {
+    if (!mentions || !currentUserId) return false;
+    return mentions.some((mention) => mention.userId === currentUserId);
   };
 
   const getUserAvatar = (user: Message["user"]) => {
@@ -401,7 +533,11 @@ export function ProjectChat({
             messages.map((message, index) => (
               <div
                 key={message.id || `message-${index}-${message.createdAt}`}
-                className="space-y-2"
+                className={`space-y-2 ${
+                  isCurrentUserMentioned(message.mentions)
+                    ? "bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 pl-2 rounded-r-lg"
+                    : ""
+                }`}
               >
                 {/* Reply context */}
                 {message.replyTo && message.replyTo.user && (
@@ -443,9 +579,15 @@ export function ProjectChat({
                           {formatMessageTime(message.createdAt)}
                         </span>
                       </div>
-                      <p className="text-sm text-foreground break-words">
-                        {message.content}
-                      </p>
+                      <p
+                        className="text-sm text-foreground break-words"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMessageContent(
+                            message.content,
+                            message.mentions
+                          ),
+                        }}
+                      />
 
                       {/* File attachments */}
                       {message.attachments &&
@@ -568,21 +710,22 @@ export function ProjectChat({
 
             <div className="flex space-x-2">
               <div className="relative flex-1">
-                <Input
-                  ref={inputRef}
+                <MentionInput
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onChange={setNewMessage}
+                  onMentionsChange={setMentions}
+                  projectMembers={projectMembers}
                   placeholder={
                     replyingTo
                       ? "Write a reply..."
                       : mentioningFile
                       ? "Add a message about this file..."
-                      : "Type a message..."
+                      : "Type a message... (use @ to mention members)"
                   }
                   className="pr-10"
                   disabled={sending}
-                  maxLength={1000}
+                  onKeyPress={handleKeyPress}
+                  resetMentions={resetMentions}
                 />
 
                 {/* File picker button */}

@@ -169,9 +169,9 @@ FileSchema.methods.getPublicShareUrl = function (): string {
   if (!this.isPublic || !this.publicShareToken) {
     return "";
   }
-  return `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/public/file/${
-    this.publicShareToken
-  }`;
+  // Import the utility function dynamically to avoid circular imports
+  const { getPublicFileUrl } = require("../utils/url");
+  return getPublicFileUrl(this.publicShareToken);
 };
 
 // Static methods

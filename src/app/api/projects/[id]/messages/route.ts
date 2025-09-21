@@ -22,6 +22,15 @@ const messageCreateSchema = z.object({
       })
     )
     .optional(),
+  mentions: z
+    .array(
+      z.object({
+        userId: z.string(),
+        username: z.string(),
+        displayName: z.string().optional(),
+      })
+    )
+    .optional(),
 });
 
 // GET /api/projects/[id]/messages - Get project messages
@@ -95,6 +104,7 @@ export async function GET(
           }
         : null,
       attachments: message.attachments || [],
+      mentions: message.mentions || [],
       _count: {
         replies: message.replyCount || 0,
       },
@@ -166,13 +176,14 @@ export async function POST(
       userId: user._id.toString(),
       replyToId: validatedData.replyToId,
       attachments: validatedData.attachments,
+      mentions: validatedData.mentions,
     };
 
     const message = await MessageService.createMessage(messageData);
 
     // Broadcast the new message to all connected clients
     broadcastMessage(projectId, {
-      type: 'new_message',
+      type: "new_message",
       message: {
         id: message._id,
         content: message.content,
@@ -184,6 +195,7 @@ export async function POST(
         },
         replyToId: message.replyToId,
         attachments: message.attachments,
+        mentions: message.mentions,
       },
       timestamp: new Date().toISOString(),
     });

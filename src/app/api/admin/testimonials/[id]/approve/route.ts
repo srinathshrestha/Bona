@@ -12,7 +12,7 @@ function isAuthorized(request: NextRequest): boolean {
 // PATCH /api/admin/testimonials/[id]/approve - Approve a testimonial
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check admin authentication

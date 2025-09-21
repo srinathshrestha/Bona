@@ -5,7 +5,7 @@ import { FileService } from "@/lib/services/file.service";
 // PUT /api/files/[id]/public - Toggle public sharing for a file
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await getCurrentUserId();
@@ -22,8 +22,9 @@ export async function PUT(
       );
     }
 
+    const resolvedParams = await params;
     const result = await FileService.togglePublicSharing(
-      params.id,
+      resolvedParams.id,
       userId,
       isPublic
     );

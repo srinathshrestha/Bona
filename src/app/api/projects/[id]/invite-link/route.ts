@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { InvitationService, UserService } from "@/lib/database";
+import { getInvitationUrl } from "@/lib/utils/url";
 
 // GET /api/projects/[id]/invite-link - Get active invitation link
 export async function GET(
@@ -46,9 +47,8 @@ export async function GET(
       createdAt: inviteLink.createdAt,
       createdById: inviteLink.createdById,
       projectId: inviteLink.projectId,
-      url: `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/join/${inviteLink.secretToken}`,
+      role: inviteLink.role,
+      url: getInvitationUrl(inviteLink.secretToken),
     });
   } catch (error) {
     console.error("Error fetching invitation link:", error);
@@ -83,6 +83,7 @@ export async function POST(
     const options: {
       maxUses?: number;
       expiresAt?: string;
+      role?: "MEMBER" | "VIEWER";
     } = body;
 
     // Convert expiration date if provided
@@ -97,6 +98,7 @@ export async function POST(
       {
         maxUses: options.maxUses,
         expiresAt,
+        role: options.role,
       }
     );
 
@@ -112,9 +114,8 @@ export async function POST(
         createdAt: inviteLink.createdAt,
         createdById: inviteLink.createdById,
         projectId: inviteLink.projectId,
-        url: `${
-          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-        }/join/${inviteLink.secretToken}`,
+        role: inviteLink.role,
+        url: getInvitationUrl(inviteLink.secretToken),
       },
       { status: 201 }
     );
