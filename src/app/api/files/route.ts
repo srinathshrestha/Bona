@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
     // Transform files to include permission flags for frontend
     const transformedFiles = filteredFiles.map((file) => {
       const isOwner = file.uploadedById?.toString() === user._id.toString();
-      const canDelete = ["OWNER", "ADMIN"].includes(userRole || "") || isOwner;
+      const canDelete = userRole === "OWNER" || isOwner;
 
       return {
         _id: file._id,
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
         // Add permission flags based on user role and ownership
         permissions: {
           canView: true, // All users with access can view filtered files
-          canDownload: ["OWNER", "ADMIN", "MEMBER"].includes(userRole || ""),
+          canDownload: ["OWNER", "MEMBER"].includes(userRole || ""),
           canDelete,
         },
       };
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       files: transformedFiles,
       userPermissions: {
-        canUpload: ["OWNER", "ADMIN", "MEMBER"].includes(userRole || ""),
+        canUpload: ["OWNER", "MEMBER"].includes(userRole || ""),
         canViewAll: true,
         userRole,
       },

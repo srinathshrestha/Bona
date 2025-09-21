@@ -204,17 +204,16 @@ export class ProjectService {
         throw new Error("User is not a member of this project");
       }
 
-      // Use the hasPermission method to check if user has admin or higher permission
+      // Use the hasPermission method to check if user has owner permission
       const roleHierarchy = {
-        OWNER: 4,
-        ADMIN: 3,
+        OWNER: 3,
         MEMBER: 2,
         VIEWER: 1,
       };
 
       const userLevel =
         roleHierarchy[member.role as keyof typeof roleHierarchy] || 0;
-      const requiredLevel = roleHierarchy.ADMIN;
+      const requiredLevel = roleHierarchy.OWNER;
 
       if (userLevel < requiredLevel) {
         throw new Error("Insufficient permissions to update project");
@@ -246,7 +245,7 @@ export class ProjectService {
   static async addMember(
     projectId: string,
     userId: string,
-    role: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER" = "MEMBER"
+    role: "OWNER" | "MEMBER" | "VIEWER" = "MEMBER"
   ): Promise<IProjectMember> {
     await this.init();
 
@@ -283,7 +282,7 @@ export class ProjectService {
       await member.save();
 
       // Populate user data
-              await member.populate("userId", "username displayName avatar");
+      await member.populate("userId", "username displayName avatar");
       await member.populate("projectId", "name description");
 
       return member;
@@ -474,6 +473,46 @@ export class ProjectService {
     } catch (error) {
       console.error("Error getting project stats:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Check if user has access to project with minimum role
+   */
+  static async hasProjectAccess(
+    userId: string,
+    projectId: string,
+    minRole: string = "VIEWER"
+  ): Promise<boolean> {
+    await this.init();
+
+    try {
+      const member = await ProjectMember.findOne({
+        projectId,
+        userId,
+      });
+
+      if (!member) {
+        return false;
+      }
+
+      // Check if user has minimum required role
+      // Use role hierarchy check directly
+      const roleHierarchy = {
+        OWNER: 3,
+        MEMBER: 2,
+        VIEWER: 1,
+      };
+
+      const userLevel =
+        roleHierarchy[member.role as keyof typeof roleHierarchy] || 0;
+      const requiredLevel =
+        roleHierarchy[minRole as keyof typeof roleHierarchy] || 0;
+
+      return userLevel >= requiredLevel;
+    } catch (error) {
+      console.error("Error checking project access:", error);
+      return false;
     }
   }
 

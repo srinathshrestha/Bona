@@ -64,8 +64,8 @@ export function ProjectInviteDialog({
   const [customExpiration, setCustomExpiration] = useState<string>("");
   const [maxUses, setMaxUses] = useState<string>("unlimited");
 
-  // Check if user can create invite links (OWNER/ADMIN)
-  const canCreateInvites = userRole === "OWNER" || userRole === "ADMIN";
+  // Check if user can create invite links (OWNER only)
+  const canCreateInvites = userRole === "OWNER";
 
   // Fetch existing invitation link
   const fetchInviteLink = async () => {
@@ -175,7 +175,7 @@ export function ProjectInviteDialog({
       } else {
         // Enhanced fallback for HTTP, older browsers, or mobile
         console.log("📋 Using fallback copy method");
-        
+
         // Create a temporary input element (more reliable than textarea on mobile)
         const tempInput = document.createElement("input");
         tempInput.value = inviteLink.url;
@@ -192,22 +192,25 @@ export function ProjectInviteDialog({
         tempInput.style.opacity = "0";
         tempInput.style.pointerEvents = "none";
         tempInput.style.zIndex = "-1";
-        
+
         document.body.appendChild(tempInput);
-        
+
         try {
           // Focus and select the text
           tempInput.focus();
           tempInput.select();
           tempInput.setSelectionRange(0, 99999); // For mobile devices
-          
+
           // Try to copy using execCommand
           const successful = document.execCommand("copy");
-          
+
           if (successful) {
             setCopied(true);
             toast.success("✅ Invitation link copied to clipboard!");
-            console.log("📋 Copied to clipboard via execCommand:", inviteLink.url);
+            console.log(
+              "📋 Copied to clipboard via execCommand:",
+              inviteLink.url
+            );
           } else {
             // If execCommand fails, try to select the input field for manual copy
             tempInput.style.opacity = "1";
@@ -215,7 +218,7 @@ export function ProjectInviteDialog({
             tempInput.style.position = "relative";
             tempInput.style.width = "100%";
             tempInput.style.zIndex = "1000";
-            
+
             toast.info("Please manually copy the selected link");
             throw new Error("execCommand copy failed");
           }
@@ -231,15 +234,18 @@ export function ProjectInviteDialog({
 
       // Reset copied state after 3 seconds
       setTimeout(() => setCopied(false), 3000);
-      
     } catch (error) {
       console.error("❌ Error copying to clipboard:", error);
-      
+
       // Final fallback: show the URL for manual copying
-      toast.error("Copy failed. Please manually copy the link from the input field above.");
-      
+      toast.error(
+        "Copy failed. Please manually copy the link from the input field above."
+      );
+
       // Try to select the input field text for manual copying
-      const inputElement = document.getElementById("invite-url") as HTMLInputElement;
+      const inputElement = document.getElementById(
+        "invite-url"
+      ) as HTMLInputElement;
       if (inputElement) {
         inputElement.focus();
         inputElement.select();
@@ -283,7 +289,7 @@ export function ProjectInviteDialog({
               <div>
                 <p className="text-sm font-medium">Permission Required</p>
                 <p className="text-xs text-muted-foreground">
-                  Only project owners and admins can create invitation links.
+                  Only project owners can create invitation links.
                 </p>
               </div>
             </div>
@@ -358,7 +364,10 @@ export function ProjectInviteDialog({
 
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p>• Share this link with team members to invite them</p>
-                    <p>• Click &quot;Copy&quot; button or manually select and copy the link above</p>
+                    <p>
+                      • Click &quot;Copy&quot; button or manually select and
+                      copy the link above
+                    </p>
                     <p>
                       • Link expires:{" "}
                       {inviteLink.expiresAt

@@ -124,7 +124,7 @@ export default async function ProjectDetailPage({
             </div>
             <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
               <ThemeToggle />
-              {(userRole === "OWNER" || userRole === "ADMIN") && (
+              {userRole === "OWNER" && (
                 <LoadingButton
                   href={`/dashboard/projects/${id}/settings`}
                   variant="outline"
@@ -405,9 +405,7 @@ export default async function ProjectDetailPage({
           </div>
 
           {/* File Upload Section */}
-          {(userRole === "OWNER" ||
-            userRole === "ADMIN" ||
-            userRole === "MEMBER") && (
+          {(userRole === "OWNER" || userRole === "MEMBER") && (
             <div>
               <FileUploadS3 projectId={id} userRole={userRole} />
             </div>
@@ -459,7 +457,7 @@ export default async function ProjectDetailPage({
               />
             </div>
 
-            {userRole === "OWNER" || userRole === "ADMIN" ? (
+            {userRole === "OWNER" ? (
               <div key="settings-link">
                 <Link href={`/dashboard/projects/${id}/settings`}>
                   <Card className="hover:shadow-lg transition-shadow cursor-pointer">

@@ -3,6 +3,7 @@ import { File, validateFile, IFile } from "../models/file.model";
 import { ProjectMember } from "../models/projectMember.model";
 import { deleteFile as deleteS3File } from "../s3";
 import mongoose from "mongoose";
+import crypto from "crypto";
 
 interface CreateFileInput {
   originalName: string;
@@ -89,7 +90,7 @@ export class FileService {
       userId,
     });
 
-    if (!member || !["OWNER", "ADMIN"].includes(member.role)) {
+    if (!member || member.role !== "OWNER") {
       throw new Error("Insufficient permissions");
     }
 
@@ -98,5 +99,54 @@ export class FileService {
 
     // Delete from database
     await File.findByIdAndDelete(fileId);
+  }
+
+  static async togglePublicSharing(
+    fileId: string,
+    userId: string,
+    isPublic: boolean
+  ): Promise<{ shareUrl: string }> {
+    await this.init();
+    const file = await File.findById(fileId);
+    if (!file) throw new Error("File not found");
+
+    // Check permissions - only OWNER and MEMBER can make files public
+    const member = await ProjectMember.findOne({
+      projectId: file.projectId,
+      userId,
+    });
+
+    if (!member || !["OWNER", "MEMBER"].includes(member.role)) {
+      throw new Error("Insufficient permissions");
+    }
+
+    if (isPublic) {
+      // Generate public share token if not exists
+      if (!file.publicShareToken) {
+        file.publicShareToken = crypto.randomBytes(32).toString("hex");
+      }
+      file.isPublic = true;
+    } else {
+      file.isPublic = false;
+      file.publicShareToken = undefined;
+    }
+
+    await file.save();
+
+    const shareUrl =
+      file.isPublic && file.publicShareToken
+        ? `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/public/file/${
+            file.publicShareToken
+          }`
+        : "";
+
+    return {
+      shareUrl,
+    };
+  }
+
+  static async getFileByPublicToken(token: string): Promise<IFile | null> {
+    await this.init();
+    return await File.findByPublicToken(token);
   }
 }

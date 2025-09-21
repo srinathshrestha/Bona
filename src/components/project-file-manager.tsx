@@ -28,6 +28,9 @@ import {
   FileSpreadsheet,
   Presentation,
   File,
+  Share,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -36,7 +39,7 @@ import { FileViewer } from "./file-viewer";
 
 interface FileData {
   _id: string;
-  fileName: string;
+  filename: string;
   originalName: string;
   fileSize: number;
   mimeType: string;
@@ -46,6 +49,8 @@ interface FileData {
   projectId: string;
   s3Url?: string;
   cloudinaryUrl?: string;
+  isPublic?: boolean;
+  publicShareToken?: string;
   permissions: {
     canView: boolean;
     canDownload: boolean;
@@ -73,8 +78,7 @@ export function ProjectFileManager({
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<FileData[]>([]);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({
-    canUpload:
-      userRole === "OWNER" || userRole === "ADMIN" || userRole === "MEMBER",
+    canUpload: userRole === "OWNER" || userRole === "MEMBER",
     canViewAll: true,
     userRole: userRole || "VIEWER",
   });
@@ -96,10 +100,7 @@ export function ProjectFileManager({
         setFiles(data.files || []);
         setUserPermissions(
           data.userPermissions || {
-            canUpload:
-              userRole === "OWNER" ||
-              userRole === "ADMIN" ||
-              userRole === "MEMBER",
+            canUpload: userRole === "OWNER" || userRole === "MEMBER",
             canViewAll: true,
             userRole: userRole || "VIEWER",
           }
@@ -195,6 +196,60 @@ export function ProjectFileManager({
     }
   };
 
+  const handleTogglePublicSharing = async (file: FileData) => {
+    if (userRole !== "OWNER" && userRole !== "MEMBER") {
+      toast.error("Only owners and members can make files public");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/files/${file._id}/public`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isPublic: !file.isPublic,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message);
+
+        // Copy share URL to clipboard if making public
+        if (data.shareUrl) {
+          await navigator.clipboard.writeText(data.shareUrl);
+          toast.success("Public link copied to clipboard!");
+        }
+
+        await fetchFiles(); // Refresh the file list
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to update file sharing");
+      }
+    } catch (error) {
+      console.error("Error toggling public sharing:", error);
+      toast.error("Failed to update file sharing");
+    }
+  };
+
+  const copyPublicLink = async (file: FileData) => {
+    if (!file.isPublic || !file.publicShareToken) {
+      toast.error("File is not publicly shared");
+      return;
+    }
+
+    const publicUrl = `${window.location.origin}/public/file/${file.publicShareToken}`;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast.success("Public link copied to clipboard!");
+    } catch (error) {
+      console.error("Error copying link:", error);
+      toast.error("Failed to copy link");
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -203,7 +258,7 @@ export function ProjectFileManager({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const getFileIcon = (mimeType: string, fileName?: string) => {
+  const getFileIcon = (mimeType: string, filename?: string) => {
     const iconClass = "h-5 w-5";
 
     // Image files
@@ -224,7 +279,7 @@ export function ProjectFileManager({
     // PDF files
     if (
       mimeType === "application/pdf" ||
-      fileName?.toLowerCase().endsWith(".pdf")
+      filename?.toLowerCase().endsWith(".pdf")
     ) {
       return <FileText className={`${iconClass} text-red-600`} />;
     }
@@ -234,7 +289,7 @@ export function ProjectFileManager({
       mimeType ===
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       mimeType === "application/vnd.ms-excel" ||
-      fileName?.toLowerCase().match(/\.(xlsx?|csv)$/)
+      filename?.toLowerCase().match(/\.(xlsx?|csv)$/)
     ) {
       return <FileSpreadsheet className={`${iconClass} text-green-600`} />;
     }
@@ -244,7 +299,7 @@ export function ProjectFileManager({
       mimeType ===
         "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
       mimeType === "application/vnd.ms-powerpoint" ||
-      fileName?.toLowerCase().match(/\.(pptx?|pps|ppsx)$/)
+      filename?.toLowerCase().match(/\.(pptx?|pps|ppsx)$/)
     ) {
       return <Presentation className={`${iconClass} text-orange-600`} />;
     }
@@ -254,7 +309,7 @@ export function ProjectFileManager({
       mimeType ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       mimeType === "application/msword" ||
-      fileName?.toLowerCase().match(/\.(docx?|rtf)$/)
+      filename?.toLowerCase().match(/\.(docx?|rtf)$/)
     ) {
       return <FileText className={`${iconClass} text-blue-600`} />;
     }
@@ -265,7 +320,7 @@ export function ProjectFileManager({
       mimeType.includes("rar") ||
       mimeType.includes("tar") ||
       mimeType.includes("gzip") ||
-      fileName?.toLowerCase().match(/\.(zip|rar|tar|gz|7z)$/)
+      filename?.toLowerCase().match(/\.(zip|rar|tar|gz|7z)$/)
     ) {
       return <Archive className={iconClass} />;
     }
@@ -273,7 +328,7 @@ export function ProjectFileManager({
     // Text files
     if (
       mimeType.startsWith("text/") ||
-      fileName
+      filename
         ?.toLowerCase()
         .match(/\.(txt|md|json|xml|html|css|js|ts|jsx|tsx)$/)
     ) {
@@ -288,8 +343,6 @@ export function ProjectFileManager({
     switch (role) {
       case "OWNER":
         return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-      case "ADMIN":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       case "MEMBER":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "VIEWER":
@@ -377,9 +430,7 @@ export function ProjectFileManager({
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-2 h-2 rounded-full ${
-                      ["OWNER", "ADMIN", "MEMBER"].includes(
-                        userPermissions.userRole
-                      )
+                      ["OWNER", "MEMBER"].includes(userPermissions.userRole)
                         ? "bg-green-500"
                         : "bg-red-500"
                     }`}
@@ -397,7 +448,7 @@ export function ProjectFileManager({
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-2 h-2 rounded-full ${
-                      ["OWNER", "ADMIN"].includes(userPermissions.userRole)
+                      ["OWNER"].includes(userPermissions.userRole)
                         ? "bg-green-500"
                         : "bg-red-500"
                     }`}
@@ -518,6 +569,38 @@ export function ProjectFileManager({
                               className="h-8 w-8 sm:h-9 sm:w-9"
                             >
                               <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                          )}
+                          {(userRole === "OWNER" || userRole === "MEMBER") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTogglePublicSharing(file)}
+                              title={
+                                file.isPublic ? "Make private" : "Make public"
+                              }
+                              className={`h-8 w-8 sm:h-9 sm:w-9 ${
+                                file.isPublic
+                                  ? "text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
+                                  : "text-gray-600 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-950"
+                              }`}
+                            >
+                              {file.isPublic ? (
+                                <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4" />
+                              ) : (
+                                <Share className="h-3 w-3 sm:h-4 sm:w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {file.isPublic && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyPublicLink(file)}
+                              title="Copy public link"
+                              className="h-8 w-8 sm:h-9 sm:w-9 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                            >
+                              <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           )}
                           {file.permissions.canDelete && (

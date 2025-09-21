@@ -2,7 +2,7 @@
 import { z } from "zod";
 
 // Enums with Zod validation
-export const ProjectRoleSchema = z.enum(["OWNER", "ADMIN", "MEMBER", "VIEWER"]);
+export const ProjectRoleSchema = z.enum(["OWNER", "MEMBER", "VIEWER"]);
 export type ProjectRole = z.infer<typeof ProjectRoleSchema>;
 
 export const InvitationStatusSchema = z.enum([

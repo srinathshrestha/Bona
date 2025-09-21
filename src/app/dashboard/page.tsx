@@ -110,8 +110,6 @@ export default function DashboardPage() {
     switch (role) {
       case "OWNER":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "ADMIN":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
       case "MEMBER":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "VIEWER":
@@ -211,7 +209,7 @@ export default function DashboardPage() {
               >
                 Open Project
               </Button>
-              {(project.role === "OWNER" || project.role === "ADMIN") && (
+              {project.role === "OWNER" && (
                 <Button
                   variant="ghost"
                   size="sm"

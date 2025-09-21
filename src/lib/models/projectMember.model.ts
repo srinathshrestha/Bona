@@ -14,7 +14,7 @@ export interface IProjectMember extends Document {
   _id: mongoose.Types.ObjectId;
   projectId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
-  role: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+  role: "OWNER" | "MEMBER" | "VIEWER";
   joinedAt: Date;
   updatedAt: Date;
 }
@@ -36,7 +36,7 @@ const ProjectMemberSchema = new Schema<IProjectMember>(
     },
     role: {
       type: String,
-      enum: ["OWNER", "ADMIN", "MEMBER", "VIEWER"],
+      enum: ["OWNER", "MEMBER", "VIEWER"],
       default: "MEMBER",
       index: true,
     },
@@ -69,10 +69,9 @@ ProjectMemberSchema.methods.hasPermission = function (
   requiredRole: string
 ): boolean {
   const roleHierarchy = {
-    OWNER: 4,
-    ADMIN: 3,
-    MEMBER: 2,
-    VIEWER: 1,
+    OWNER: 3, // Full project control
+    MEMBER: 2, // Content contribution
+    VIEWER: 1, // Read-only access
   };
 
   const userLevel = roleHierarchy[this.role as keyof typeof roleHierarchy] || 0;
@@ -81,6 +80,7 @@ ProjectMemberSchema.methods.hasPermission = function (
 
   return userLevel >= requiredLevel;
 };
+
 
 // Static methods
 ProjectMemberSchema.statics.findByProject = function (projectId: string) {

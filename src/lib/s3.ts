@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
@@ -20,7 +21,79 @@ const s3Client = new S3Client({
 // Configuration
 const BUCKET_NAME = process.env.S3_UPLOAD_BUCKET || "get-cert";
 const DEFAULT_EXPIRY = 3600; // 1 hour in seconds
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB for general files
+
+// Allowed file types for general collaboration
+const ALLOWED_FILE_TYPES = [
+  // Images
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "image/bmp",
+  "image/tiff",
+
+  // Documents
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+  "application/rtf",
+
+  // Archives
+  "application/zip",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "application/gzip",
+  "application/x-tar",
+
+  // Audio (keeping for compatibility)
+  "audio/wav",
+  "audio/wave",
+  "audio/x-wav",
+  "audio/aiff",
+  "audio/x-aiff",
+  "audio/flac",
+  "audio/x-flac",
+  "audio/mp3",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/m4a",
+  "audio/x-m4a",
+  "audio/ogg",
+  "audio/opus",
+  "audio/webm",
+
+  // Video
+  "video/mp4",
+  "video/avi",
+  "video/mov",
+  "video/wmv",
+  "video/flv",
+  "video/webm",
+  "video/mkv",
+  "video/3gp",
+
+  // Code files
+  "text/javascript",
+  "text/css",
+  "text/html",
+  "application/json",
+  "application/xml",
+  "text/xml",
+  "text/markdown",
+
+  // Other common types
+  "application/octet-stream", // Generic binary
+];
 
 /**
  * Generate a unique S3 key for file uploads
@@ -91,22 +164,19 @@ export async function getUploadPresignedUrl(
     Bucket: BUCKET_NAME,
     Key: s3Key,
     ContentType: contentType,
-    ContentLength: fileSize,
     // Add metadata
     Metadata: {
       projectId,
       originalFilename: filename,
       uploadedAt: new Date().toISOString(),
     },
-    // Security headers
-    ServerSideEncryption: "AES256",
   });
 
   console.log("📝 [S3-SERVICE] PutObjectCommand created:", {
     Bucket: BUCKET_NAME,
     Key: s3Key,
     ContentType: contentType,
-    ContentLength: fileSize,
+    fileSize: fileSize,
   });
 
   try {
@@ -285,7 +355,7 @@ export function getPublicUrl(s3Key: string): string {
 }
 
 /**
- * Validate file type and size
+ * Validate file type and size - General file validation for collaboration
  */
 export function validateFile(
   filename: string,
@@ -299,7 +369,7 @@ export function validateFile(
     fileSize,
     fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
     maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
-    allowedTypes,
+    allowedTypes: allowedTypes || ALLOWED_FILE_TYPES,
   });
 
   // Check file size
@@ -314,43 +384,22 @@ export function validateFile(
     };
   }
 
-  // Check file type if allowedTypes is specified
-  if (allowedTypes && allowedTypes.length > 0) {
-    const isAllowed = allowedTypes.some((type) => {
-      if (type.includes("*")) {
-        // Wildcard matching (e.g., "image/*")
-        const pattern = type.replace("*", ".*");
-        return new RegExp(pattern).test(contentType);
-      }
-      return contentType === type;
-    });
+  // Use general file types by default, or custom types if provided
+  const typesToCheck = allowedTypes || ALLOWED_FILE_TYPES;
 
-    if (!isAllowed) {
-      const error = `File type ${contentType} is not allowed. Allowed types: ${allowedTypes.join(
-        ", "
-      )}`;
-      console.log("❌ [S3-VALIDATION] File type not allowed:", error);
-      return {
-        isValid: false,
-        error,
-      };
+  // Check if file type is allowed
+  const isAllowed = typesToCheck.some((type) => {
+    if (type.includes("*")) {
+      // Wildcard matching (e.g., "audio/*")
+      const pattern = type.replace("*", ".*");
+      return new RegExp(pattern).test(contentType);
     }
-  }
+    return contentType === type;
+  });
 
-  // Check for potentially dangerous file types
-  const dangerousTypes = [
-    "application/x-executable",
-    "application/x-msdownload",
-    "application/x-dosexec",
-    "application/x-winexe",
-  ];
-
-  if (dangerousTypes.includes(contentType)) {
-    const error = "Executable files are not allowed for security reasons";
-    console.log("❌ [S3-VALIDATION] Dangerous file type:", {
-      contentType,
-      error,
-    });
+  if (!isAllowed) {
+    const error = `File type ${contentType} is not supported. This platform accepts common file types including images, documents, videos, audio, and archives.`;
+    console.log("❌ [S3-VALIDATION] File type not allowed:", error);
     return {
       isValid: false,
       error,
@@ -409,4 +458,5 @@ export const S3_CONFIG = {
   MAX_FILE_SIZE,
   DEFAULT_EXPIRY,
   REGION: process.env.AWS_REGION || "ap-south-1",
+  ALLOWED_FILE_TYPES,
 };

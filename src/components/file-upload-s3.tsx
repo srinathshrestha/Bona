@@ -41,101 +41,100 @@ export function FileUploadS3({
   const [isDragging, setIsDragging] = useState(false);
 
   // Check if user can upload (MEMBER or above)
-  const canUpload = userRole && ["OWNER", "ADMIN", "MEMBER"].includes(userRole);
+  const canUpload = userRole && ["OWNER", "MEMBER"].includes(userRole);
   const isDisabled = disabled || !canUpload;
 
   // Fetch API fallback for mobile uploads
-  const uploadWithFetchAPI = useCallback(async (
-    uploadingFile: UploadingFile, 
-    uploadUrl: string, 
-    s3Key: string
-  ) => {
-    console.log("🌐 [CLIENT-UPLOAD] Using fetch API for mobile upload...");
-    
-    try {
-      const response = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: uploadingFile.file,
-        headers: {
-          'Content-Type': uploadingFile.file.type,
-          'x-amz-server-side-encryption': 'AES256',
-        },
-        mode: 'cors',
-      });
+  const uploadWithFetchAPI = useCallback(
+    async (uploadingFile: UploadingFile, uploadUrl: string, s3Key: string) => {
+      console.log("🌐 [CLIENT-UPLOAD] Using fetch API for mobile upload...");
 
-      console.log("🌐 [CLIENT-UPLOAD] Fetch response:", {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
+      try {
+        const response = await fetch(uploadUrl, {
+          method: "PUT",
+          body: uploadingFile.file,
+          headers: {
+            "Content-Type": uploadingFile.file.type,
+          },
+          mode: "cors",
+        });
 
-      if (!response.ok) {
-        const responseText = await response.text().catch(() => 'Unable to read response');
-        console.error("💥 [CLIENT-UPLOAD] Fetch upload failed:", {
+        console.log("🌐 [CLIENT-UPLOAD] Fetch response:", {
           status: response.status,
           statusText: response.statusText,
-          responseText,
-          url: uploadUrl,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries()),
         });
-        
-        let errorMessage = `Fetch upload failed with status ${response.status}`;
-        if (response.status === 0 || response.status === 403) {
-          errorMessage += " - Likely CORS issue";
+
+        if (!response.ok) {
+          const responseText = await response
+            .text()
+            .catch(() => "Unable to read response");
+          console.error("💥 [CLIENT-UPLOAD] Fetch upload failed:", {
+            status: response.status,
+            statusText: response.statusText,
+            responseText,
+            url: uploadUrl,
+          });
+
+          let errorMessage = `Fetch upload failed with status ${response.status}`;
+          if (response.status === 0 || response.status === 403) {
+            errorMessage += " - Likely CORS issue";
+          }
+
+          throw new Error(errorMessage);
         }
-        
-        throw new Error(errorMessage);
+
+        console.log("✅ [CLIENT-UPLOAD] Fetch API upload successful");
+
+        // Step 3: Save file metadata to database (same as XHR)
+        const metadataResponse = await fetch("/api/files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            filename: uploadingFile.file.name,
+            originalName: uploadingFile.file.name,
+            fileSize: uploadingFile.file.size,
+            mimeType: uploadingFile.file.type,
+            s3Key,
+          }),
+        });
+
+        if (!metadataResponse.ok) {
+          const errorData = await metadataResponse.json();
+          throw new Error(errorData.error || "Failed to save file metadata");
+        }
+
+        const savedFile = await metadataResponse.json();
+
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadingFile.id
+              ? { ...f, status: "completed", progress: 100 }
+              : f
+          )
+        );
+
+        toast.success(`${uploadingFile.file.name} uploaded successfully!`);
+
+        if (onUploadComplete) {
+          onUploadComplete([savedFile]);
+        }
+      } catch (error) {
+        console.error("💥 [CLIENT-UPLOAD] Fetch API upload failed:", error);
+        console.error("💥 [CLIENT-UPLOAD] Fetch error details:", {
+          message: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : "No stack",
+          name: error instanceof Error ? error.name : "Unknown",
+          userAgent: navigator.userAgent,
+          origin: window.location.origin,
+        });
+        throw error;
       }
-
-      console.log("✅ [CLIENT-UPLOAD] Fetch API upload successful");
-      
-      // Step 3: Save file metadata to database (same as XHR)
-      const metadataResponse = await fetch("/api/files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          filename: uploadingFile.file.name,
-          originalName: uploadingFile.file.name,
-          fileSize: uploadingFile.file.size,
-          mimeType: uploadingFile.file.type,
-          s3Key,
-        }),
-      });
-
-      if (!metadataResponse.ok) {
-        const errorData = await metadataResponse.json();
-        throw new Error(errorData.error || "Failed to save file metadata");
-      }
-
-      const savedFile = await metadataResponse.json();
-      
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.id === uploadingFile.id
-            ? { ...f, status: "completed", progress: 100 }
-            : f
-        )
-      );
-
-      toast.success(`${uploadingFile.file.name} uploaded successfully!`);
-
-      if (onUploadComplete) {
-        onUploadComplete([savedFile]);
-      }
-      
-    } catch (error) {
-      console.error("💥 [CLIENT-UPLOAD] Fetch API upload failed:", error);
-      console.error("💥 [CLIENT-UPLOAD] Fetch error details:", {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack',
-        name: error instanceof Error ? error.name : 'Unknown',
-        userAgent: navigator.userAgent,
-        origin: window.location.origin,
-      });
-      throw error;
-    }
-  }, [projectId, onUploadComplete]);
+    },
+    [projectId, onUploadComplete]
+  );
 
   // Upload individual file with mobile fallback
   const uploadFile = useCallback(
@@ -150,7 +149,10 @@ export function FileUploadS3({
       });
 
       // Detect mobile browsers
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        );
       console.log("📱 [CLIENT-UPLOAD] Mobile device detected:", isMobile);
 
       try {
@@ -197,7 +199,9 @@ export function FileUploadS3({
 
         // For mobile devices, prefer fetch API
         if (isMobile) {
-          console.log("📱 [CLIENT-UPLOAD] Using fetch API for mobile device...");
+          console.log(
+            "📱 [CLIENT-UPLOAD] Using fetch API for mobile device..."
+          );
           await uploadWithFetchAPI(uploadingFile, uploadUrl, s3Key);
           return;
         }
@@ -316,7 +320,7 @@ export function FileUploadS3({
 
         xhr.addEventListener("error", (event) => {
           console.error("💥 [CLIENT-UPLOAD] S3 upload error event:", event);
-          
+
           // Enhanced error logging for mobile debugging
           const errorDetails = {
             status: xhr.status,
@@ -327,28 +331,34 @@ export function FileUploadS3({
             getAllResponseHeaders: xhr.getAllResponseHeaders(),
             // Additional mobile-specific debugging
             userAgent: navigator.userAgent,
-            connectionType: (navigator as any).connection?.effectiveType || 'unknown', // eslint-disable-line @typescript-eslint/no-explicit-any
+            connectionType:
+              (navigator as any).connection?.effectiveType || "unknown", // eslint-disable-line @typescript-eslint/no-explicit-any
             isOnline: navigator.onLine,
             eventType: event.type,
-            eventTarget: event.target ? 'XMLHttpRequest' : 'unknown',
+            eventTarget: event.target ? "XMLHttpRequest" : "unknown",
             timestamp: new Date().toISOString(),
             // CORS specific debugging
             origin: window.location.origin,
-            uploadURL: xhr.responseURL || 'unknown',
+            uploadURL: xhr.responseURL || "unknown",
           };
-          
-          console.error("💥 [CLIENT-UPLOAD] XMLHttpRequest details:", errorDetails);
-          
+
+          console.error(
+            "💥 [CLIENT-UPLOAD] XMLHttpRequest details:",
+            errorDetails
+          );
+
           // Provide more specific error message based on status
           let errorMessage = "Upload failed";
           let errorHint = "";
-          
+
           if (xhr.status === 0) {
             errorMessage = "Network error or CORS issue";
-            errorHint = "This usually indicates a CORS (Cross-Origin Resource Sharing) problem. Please check S3 bucket CORS configuration.";
+            errorHint =
+              "This usually indicates a CORS (Cross-Origin Resource Sharing) problem. Please check S3 bucket CORS configuration.";
           } else if (xhr.status === 403) {
             errorMessage = "Upload permission denied";
-            errorHint = "The upload URL may have expired or the file is not allowed.";
+            errorHint =
+              "The upload URL may have expired or the file is not allowed.";
           } else if (xhr.status === 404) {
             errorMessage = "Upload endpoint not found";
             errorHint = "The S3 bucket or upload URL is invalid.";
@@ -359,9 +369,9 @@ export function FileUploadS3({
             errorMessage = `Server error (${xhr.status})`;
             errorHint = "S3 service is temporarily unavailable.";
           }
-          
+
           console.error("💡 [CLIENT-UPLOAD] Error hint:", errorHint);
-          
+
           setUploadingFiles((prev) =>
             prev.map((f) =>
               f.id === uploadingFile.id
@@ -373,7 +383,7 @@ export function FileUploadS3({
                 : f
             )
           );
-          
+
           toast.error(`${errorMessage}: ${uploadingFile.file.name}`, {
             description: errorHint,
             duration: 8000,
@@ -394,14 +404,15 @@ export function FileUploadS3({
             fileName: uploadingFile.file.name,
             fileSize: uploadingFile.file.size,
           });
-          
+
           setUploadingFiles((prev) =>
             prev.map((f) =>
               f.id === uploadingFile.id
                 ? {
                     ...f,
                     status: "error",
-                    error: "Upload timed out - please check your connection and try again",
+                    error:
+                      "Upload timed out - please check your connection and try again",
                   }
                 : f
             )
@@ -417,16 +428,15 @@ export function FileUploadS3({
           fileSize: uploadingFile.file.size,
           fileName: uploadingFile.file.name,
         });
-        
+
         xhr.open("PUT", uploadUrl);
-        
+
         // Essential headers for S3 upload
         xhr.setRequestHeader("Content-Type", uploadingFile.file.type);
-        xhr.setRequestHeader("x-amz-server-side-encryption", "AES256");
-        
+
         // Mobile-friendly configurations
         xhr.withCredentials = false; // Important for CORS on mobile
-        
+
         console.log("🔄 [CLIENT-UPLOAD] XMLHttpRequest configured:", {
           readyState: xhr.readyState,
           timeout: xhr.timeout,
@@ -434,7 +444,7 @@ export function FileUploadS3({
           userAgent: navigator.userAgent,
           isOnline: navigator.onLine,
         });
-        
+
         xhr.send(uploadingFile.file);
       } catch (error) {
         console.error("💥 [CLIENT-UPLOAD] XHR Upload error:", error);

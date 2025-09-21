@@ -39,11 +39,20 @@ async function connectMongoDB(): Promise<typeof mongoose> {
       family: 4, // Use IPv4, skip trying IPv6
     };
 
-    // Get MongoDB URI from environment
-    const mongoUri = process.env.MONGODB_URI;
+    // Get MongoDB URI from environment - use test database if available
+    const mongoUri = process.env.MONGODB_URI_TEST || process.env.MONGODB_URI;
     if (!mongoUri) {
-      throw new Error("MONGODB_URI environment variable is not set");
+      throw new Error(
+        "MONGODB_URI_TEST or MONGODB_URI environment variable is not set"
+      );
     }
+
+    console.log(
+      "🔗 Connecting to:",
+      mongoUri.includes("Audio-DB")
+        ? "Audio Test Database"
+        : "Production Database"
+    );
 
     // Create connection promise
     cached!.promise = mongoose.connect(mongoUri, opts);

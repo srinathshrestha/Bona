@@ -128,8 +128,6 @@ export function MemberManagement({
     switch (role) {
       case "OWNER":
         return <Crown className="w-4 h-4" />;
-      case "ADMIN":
-        return <Shield className="w-4 h-4" />;
       case "MEMBER":
         return <User className="w-4 h-4" />;
       case "VIEWER":
@@ -143,8 +141,6 @@ export function MemberManagement({
     switch (role) {
       case "OWNER":
         return "default" as const;
-      case "ADMIN":
-        return "secondary" as const;
       case "MEMBER":
         return "outline" as const;
       case "VIEWER":
@@ -156,9 +152,6 @@ export function MemberManagement({
 
   const canManageRole = (targetRole: ProjectRole) => {
     if (permissions.role === "OWNER") return true;
-    if (permissions.role === "ADMIN") {
-      return targetRole === "MEMBER" || targetRole === "VIEWER";
-    }
     return false;
   };
 
@@ -554,14 +547,6 @@ export function MemberManagement({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {permissions.role === "OWNER" && (
-                    <SelectItem value="ADMIN">
-                      <div className="flex items-center">
-                        <Shield className="w-4 h-4 mr-2" />
-                        Admin
-                      </div>
-                    </SelectItem>
-                  )}
                   <SelectItem value="MEMBER">
                     <div className="flex items-center">
                       <UserCheck className="w-4 h-4 mr-2" />

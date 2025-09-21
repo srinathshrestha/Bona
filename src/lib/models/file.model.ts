@@ -13,6 +13,7 @@ export const FileValidationSchema = z.object({
   s3Url: z.string().url().optional(),
   metadata: FileMetadataSchema,
   isPublic: z.boolean().default(false),
+  publicShareToken: z.string().optional(),
   projectId: ObjectIdSchema,
   uploadedById: ObjectIdSchema,
 });
@@ -29,6 +30,7 @@ export interface IFile extends Document {
   s3Url?: string;
   metadata?: any;
   isPublic: boolean;
+  publicShareToken?: string;
   projectId: mongoose.Types.ObjectId;
   uploadedById: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -82,6 +84,12 @@ const FileSchema = new Schema<IFile>(
     isPublic: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    publicShareToken: {
+      type: String,
+      unique: true,
+      sparse: true,
       index: true,
     },
     projectId: {
@@ -150,6 +158,20 @@ FileSchema.methods.getFormattedSize = function (): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
+
+FileSchema.methods.generatePublicShareToken = function (): string {
+  const crypto = require("crypto");
+  return crypto.randomBytes(32).toString("hex");
+};
+
+FileSchema.methods.getPublicShareUrl = function (): string {
+  if (!this.isPublic || !this.publicShareToken) {
+    return "";
+  }
+  return `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/public/file/${
+    this.publicShareToken
+  }`;
 };
 
 // Static methods
@@ -274,6 +296,13 @@ FileSchema.statics.getFileTypeStats = function (projectId?: string) {
   ]);
 };
 
+FileSchema.statics.findByPublicToken = function (token: string) {
+  return this.findOne({
+    publicShareToken: token,
+    isPublic: true,
+  }).populate("uploadedById", "username displayName");
+};
+
 // Pre-save middleware
 FileSchema.pre("save", function (next) {
   // Sanitize filename
@@ -300,6 +329,7 @@ export interface IFileModel extends Model<IFile> {
   searchFiles(projectId: string, searchTerm: string): Promise<IFile[]>;
   getFileStats(projectId?: string): Promise<any[]>;
   getFileTypeStats(projectId?: string): Promise<any[]>;
+  findByPublicToken(token: string): Promise<IFile | null>;
 }
 
 export const File =
