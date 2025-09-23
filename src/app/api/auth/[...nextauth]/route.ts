@@ -1,6 +1,5 @@
 import NextAuth, { NextAuthOptions, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/mongodb-client";
 import bcrypt from "bcryptjs";
@@ -42,7 +41,7 @@ declare module "next-auth/jwt" {
 export const authOptions: NextAuthOptions = {
   // Configure authentication providers
   providers: [
-    // Email/Password authentication
+    // Email/Password authentication only
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -67,12 +66,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid email or password");
         }
 
-        // Check if user has a password (for credential-based auth)
+        // Check if user has a password (credential-based auth only)
         if (!user.password) {
-          // If user exists but has no password, they likely signed up with OAuth
-          // For now, allow them to use Google sign-in
+          // Account exists without a password (legacy social accounts)
+          // Ask user to reset password to proceed
           throw new Error(
-            "This account was created with Google. Please use 'Sign in with Google' instead."
+            "No password set for this account. Please reset your password."
           );
         }
 
@@ -96,67 +95,15 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
-
-    // Google OAuth provider with advanced features
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
-          scope: "openid email profile",
-          include_granted_scopes: "true",
-        },
-      },
-      profile(profile) {
-        return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email,
-          image: profile.picture,
-          emailVerified: profile.email_verified,
-        };
-      },
-      // Enable account linking for the same email address
-      allowDangerousEmailAccountLinking: true,
-    }),
   ],
 
   // Use MongoDB adapter for session storage
   adapter: MongoDBAdapter(clientPromise),
 
-  // Note: allowDangerousEmailAccountLinking is configured per provider above
-
   // Enable debug mode for better error logging
   debug: process.env.NODE_ENV === "development",
 
-  // Events to handle user creation and updates
-  events: {
-    async createUser({
-      user,
-    }: {
-      user: { id: string; email?: string; name?: string; image?: string };
-    }) {
-      // This runs after the adapter creates a new user
-      await connectMongoDB();
-
-      try {
-        // Update the user with additional fields for OAuth users
-        const updateData: Record<string, string> = {
-          username: user.email?.split("@")[0] || `user_${Date.now()}`,
-        };
-
-        if (user.name) updateData.displayName = user.name;
-        if (user.image) updateData.avatar = user.image;
-
-        await User.findByIdAndUpdate(user.id, updateData);
-      } catch (error) {
-        console.error("Error updating user after creation:", error);
-      }
-    },
-  },
+  // No OAuth events needed; credentials-only flow
 
   // Configure session strategy
   session: {
